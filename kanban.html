@@ -77,7 +77,13 @@
       min-height: 400px;
     }
 
-    .column.drag-over { outline: 1.5px dashed rgba(0,0,0,0.2); }
+    .column.drag-over {
+      background: #e4eef8;
+      outline: 1.5px solid #5b8dd9;
+      box-shadow: inset 0 0 0 2px rgba(91,141,217,0.15);
+    }
+
+    .column.drag-over .column-title { color: #2a5aa0; }
 
     .column-header {
       display: flex;
@@ -577,19 +583,24 @@ function buildCard(card, colId) {
 function wireDropZone(zone) {
   const col = zone.closest('.column');
 
+  // Highlight as soon as the card touches the column boundary
+  col.addEventListener('dragenter', e => {
+    e.preventDefault();
+    col.classList.add('drag-over');
+  });
+
+  col.addEventListener('dragleave', e => {
+    if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+  });
+
   zone.addEventListener('dragover', e => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    col.classList.add('drag-over');
     const dragging = document.querySelector('.dragging');
     if (!dragging) return;
     const after = elementAfterCursor(zone, e.clientY);
     if (after) zone.insertBefore(dragging, after);
     else        zone.appendChild(dragging);
-  });
-
-  zone.addEventListener('dragleave', e => {
-    if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
   });
 
   zone.addEventListener('drop', e => {
