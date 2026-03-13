@@ -394,8 +394,6 @@ let binId   = location.hash.slice(1) || localStorage.getItem('kanban-bin-id');
 let saveTimer  = null;
 let pollTimer  = null;
 let dragSrc    = null;   // { id, col }
-let dragOffset = { x: 0, y: 0 };   // cursor position within the card at drag start
-let dragCardSize = { w: 0, h: 0 }; // card dimensions at drag start
 let isSaving   = false;
 
 // ─── Status ───────────────────────────────────────────────────────────────────
@@ -569,8 +567,6 @@ function buildCard(card, colId) {
 
   div.addEventListener('dragstart', e => {
     dragSrc = { id: card.id, col: colId };
-    dragOffset = { x: e.offsetX, y: e.offsetY };
-    dragCardSize = { w: div.offsetWidth, h: div.offsetHeight };
     div.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', card.id);
@@ -587,7 +583,17 @@ function buildCard(card, colId) {
 function wireDropZone(zone) {
   const col = zone.closest('.column');
 
-  zone.addEventListener('dragover', e => {
+  // Highlight as soon as the card touches the column boundary
+  col.addEventListener('dragenter', e => {
+    e.preventDefault();
+    col.classList.add('drag-over');
+  });
+
+  col.addEventListener('dragleave', e => {
+    if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+  });
+
+  col.addEventListener('dragover', e => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const dragging = document.querySelector('.dragging');
@@ -597,7 +603,7 @@ function wireDropZone(zone) {
     else        zone.appendChild(dragging);
   });
 
-  zone.addEventListener('drop', e => {
+  col.addEventListener('drop', e => {
     e.preventDefault();
     col.classList.remove('drag-over');
     if (!dragSrc) return;
@@ -841,25 +847,6 @@ document.getElementById('refresh-btn').addEventListener('click', async () => {
   } catch (e) {
     setStatus('error', 'Sync failed');
   }
-});
-
-// ─── Card-body-based column highlight ────────────────────────────────────────
-// Fires on every cursor move during drag; computes where the card visually is
-// (cursor minus the offset recorded at dragstart) and highlights any column
-// whose bounding rect overlaps the card rect.
-document.addEventListener('dragover', e => {
-  if (!dragSrc) return;
-  const cardLeft   = e.clientX - dragOffset.x;
-  const cardTop    = e.clientY - dragOffset.y;
-  const cardRight  = cardLeft + dragCardSize.w;
-  const cardBottom = cardTop  + dragCardSize.h;
-
-  document.querySelectorAll('.column').forEach(col => {
-    const r = col.getBoundingClientRect();
-    const overlaps = cardLeft < r.right && cardRight > r.left &&
-                     cardTop  < r.bottom && cardBottom > r.top;
-    col.classList.toggle('drag-over', overlaps);
-  });
 });
 
 init();
