@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shared Kanban</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f4f0;
+      color: #1a1a18;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    h1 { font-size: 18px; font-weight: 500; color: #1a1a18; }
+
+    #status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #888780;
+    }
+
+    #status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #c8c7c2;
+      transition: background 0.3s;
+      flex-shrink: 0;
+    }
+
+    #status-dot.connecting { background: #d4a017; }
+    #status-dot.saving     { background: #5b8dd9; }
+    #status-dot.saved      { background: #5fa85a; }
+    #status-dot.error      { background: #c0392b; }
+
+    #refresh-btn {
+      background: none;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      cursor: pointer;
+      color: #888780;
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: inherit;
+      transition: background 0.1s, color 0.1s;
+    }
+    #refresh-btn:hover { background: rgba(0,0,0,0.04); color: #5f5e5a; }
+
+    .board {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    @media (max-width: 600px) {
+      .board { flex-direction: column; }
+    }
+
+    .column {
+      flex: 1;
+      background: #eeece6;
+      border-radius: 12px;
+      border: 0.5px solid rgba(0,0,0,0.1);
+      padding: 12px;
+      min-height: 400px;
+    }
+
+    .column.drag-over { outline: 1.5px dashed rgba(0,0,0,0.2); }
+
+    .column-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 0.5px solid rgba(0,0,0,0.1);
+    }
+
+    .column-title {
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #5f5e5a;
+    }
+
+    .column-count {
+      font-size: 12px;
+      color: #888780;
+      background: #fff;
+      border: 0.5px solid rgba(0,0,0,0.1);
+      border-radius: 20px;
+      padding: 1px 8px;
+    }
+
+    .cards {
+      min-height: 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card {
+      background: #fff;
+      border: 0.5px solid rgba(0,0,0,0.1);
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: grab;
+      transition: opacity 0.1s;
+      position: relative;
+      user-select: none;
+    }
+
+    .card:active { cursor: grabbing; }
+    .card.dragging { opacity: 0.4; }
+
+    .card-text {
+      font-size: 14px;
+      color: #1a1a18;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .card-tag {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 20px;
+    }
+
+    .tag-blue   { background: #E6F1FB; color: #0C447C; }
+    .tag-green  { background: #EAF3DE; color: #3B6D11; }
+    .tag-amber  { background: #FAEEDA; color: #854F0B; }
+    .tag-rose   { background: #FAE6EA; color: #7C1215; }
+    .tag-purple { background: #EDE6FB; color: #3D1C7C; }
+
+    .card-delete, .card-edit {
+      position: absolute;
+      top: 5px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #bbb9b4;
+      font-size: 13px;
+      line-height: 1;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: color 0.1s;
+    }
+
+    .card-delete { right: 6px; font-size: 15px; }
+    .card-edit   { right: 26px; }
+
+    .card:hover .card-delete,
+    .card:hover .card-edit { display: flex; }
+    .card-delete:hover { color: #c0392b; }
+    .card-edit:hover   { color: #1a1a18; }
+
+    .card-edit-form {
+      background: #fff;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .card-edit-form textarea {
+      width: 100%;
+      resize: none;
+      border: 0.5px solid rgba(0,0,0,0.2);
+      border-radius: 8px;
+      padding: 7px 9px;
+      font-size: 13px;
+      font-family: inherit;
+      color: #1a1a18;
+      background: #fff;
+      outline: none;
+    }
+
+    .card-edit-form textarea:focus { border-color: rgba(0,0,0,0.35); }
+
+    .add-card-btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 7px;
+      font-size: 13px;
+      font-family: inherit;
+      color: #888780;
+      background: transparent;
+      border: 0.5px dashed rgba(0,0,0,0.15);
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: left;
+      transition: color 0.1s, background 0.1s;
+    }
+
+    .add-card-btn:hover { color: #5f5e5a; background: rgba(0,0,0,0.03); }
+
+    .add-card-form {
+      display: none;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 8px;
+    }
+
+    .add-card-form.open { display: flex; }
+
+    .add-card-form textarea {
+      width: 100%;
+      resize: none;
+      border: 0.5px solid rgba(0,0,0,0.2);
+      border-radius: 8px;
+      padding: 7px 9px;
+      font-size: 13px;
+      font-family: inherit;
+      color: #1a1a18;
+      background: #fff;
+      outline: none;
+    }
+
+    .add-card-form textarea:focus { border-color: rgba(0,0,0,0.35); }
+
+    .tag-input-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tag-text-input {
+      flex: 1;
+      min-width: 0;
+      border: 0.5px solid rgba(0,0,0,0.2);
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 12px;
+      font-family: inherit;
+      color: #1a1a18;
+      background: #fff;
+      outline: none;
+    }
+
+    .tag-text-input:focus { border-color: rgba(0,0,0,0.35); }
+    .tag-text-input::placeholder { color: #b8b7b2; }
+
+    .color-dots { display: flex; gap: 5px; flex-shrink: 0; }
+
+    .color-dot {
+      width: 15px; height: 15px;
+      border-radius: 50%;
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      padding: 0;
+      transition: transform 0.1s;
+      outline: none;
+    }
+
+    .color-dot:hover { transform: scale(1.2); }
+    .color-dot.selected {
+      border-color: rgba(0,0,0,0.35);
+      box-shadow: inset 0 0 0 2px #fff;
+    }
+
+    .tag-suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .tag-sugg {
+      padding: 2px 7px;
+      border-radius: 20px;
+      border: 0.5px solid rgba(0,0,0,0.08);
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.1s;
+    }
+
+    .tag-sugg:hover { opacity: 0.7; }
+
+    .form-actions { display: flex; gap: 6px; }
+
+    .btn-primary {
+      padding: 5px 12px;
+      background: #1a1a18;
+      color: #f5f4f0;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.1s;
+    }
+
+    .btn-primary:hover { opacity: 0.8; }
+
+    .btn-cancel {
+      padding: 5px 8px;
+      background: none;
+      border: none;
+      color: #888780;
+      font-size: 12px;
+      cursor: pointer;
+      border-radius: 6px;
+      font-family: inherit;
+      transition: color 0.1s;
+    }
+
+    .btn-cancel:hover { color: #5f5e5a; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Shared Kanban</h1>
+  <div id="status">
+    <div id="status-dot" class="connecting"></div>
+    <span id="status-text">Connecting…</span>
+    <button id="refresh-btn" title="Reload from server">↻ Sync</button>
+  </div>
+</header>
+
+<div class="board" id="board"></div>
+
+<script src="kanban-secrets.js"></script>
+<script>
+// ─── Config ───────────────────────────────────────────────────────────────────
+// MASTER_KEY is loaded from kanban-secrets.js (gitignored)
+const API         = 'https://api.jsonbin.io/v3';
+const POLL_MS     = 15_000; // auto-sync every 15 s when idle
+
+const COLUMNS = [
+  { id: 'todo',       label: 'To Do'       },
+  { id: 'inprogress', label: 'In Progress' },
+  { id: 'done',       label: 'Done'        },
+];
+
+const COLORS = [
+  { cls: 'tag-blue',   dot: '#7ab3e0' },
+  { cls: 'tag-green',  dot: '#8abb6a' },
+  { cls: 'tag-amber',  dot: '#d4964a' },
+  { cls: 'tag-rose',   dot: '#d47a8a' },
+  { cls: 'tag-purple', dot: '#9a7ad4' },
+];
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let state   = { todo: [], inprogress: [], done: [] };
+// Resolve bin ID: URL hash takes priority (for sharing), then localStorage
+let binId   = location.hash.slice(1) || localStorage.getItem('kanban-bin-id');
+let saveTimer  = null;
+let pollTimer  = null;
+let dragSrc    = null;   // { id, col }
+let isSaving   = false;
+
+// ─── Status ───────────────────────────────────────────────────────────────────
+function setStatus(kind, msg) {
+  document.getElementById('status-dot').className  = kind;
+  document.getElementById('status-text').textContent = msg;
+}
+
+// ─── JSONBin API ──────────────────────────────────────────────────────────────
+const headers = () => ({ 'X-Master-Key': MASTER_KEY });
+
+async function createBin() {
+  const res = await fetch(`${API}/b`, {
+    method: 'POST',
+    headers: { ...headers(), 'Content-Type': 'application/json', 'X-Bin-Name': 'kanban-shared', 'X-Bin-Private': 'false' },
+    body: JSON.stringify({ todo: [], inprogress: [], done: [] }),
+  });
+  if (!res.ok) throw new Error(`Create bin failed: ${res.status}`);
+  const { metadata } = await res.json();
+  return metadata.id;
+}
+
+async function fetchState() {
+  const res = await fetch(`${API}/b/${binId}/latest`, { headers: headers() });
+  if (res.status === 404) throw Object.assign(new Error('Bin not found'), { notFound: true });
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+  const { record } = await res.json();
+  return record;
+}
+
+async function pushState() {
+  const res = await fetch(`${API}/b/${binId}`, {
+    method: 'PUT',
+    headers: { ...headers(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(state),
+  });
+  if (!res.ok) throw new Error(`Save failed: ${res.status}`);
+}
+
+// ─── Debounced save ───────────────────────────────────────────────────────────
+function scheduleSave() {
+  setStatus('saving', 'Saving…');
+  clearTimeout(saveTimer);
+  clearTimeout(pollTimer);  // don't poll while editing
+  saveTimer = setTimeout(async () => {
+    isSaving = true;
+    try {
+      await pushState();
+      setStatus('saved', 'Saved');
+    } catch (e) {
+      setStatus('error', 'Save failed');
+      console.error(e);
+    } finally {
+      isSaving = false;
+      schedulePoll();
+    }
+  }, 700);
+}
+
+// ─── Polling ──────────────────────────────────────────────────────────────────
+function schedulePoll() {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(async () => {
+    if (isSaving || saveTimer) return;
+    try {
+      const remote = await fetchState();
+      state = remote;
+      renderBoard();
+      setStatus('saved', 'Synced');
+    } catch (_) {
+      // silent — don't disrupt the user for a background poll failure
+    }
+    schedulePoll();
+  }, POLL_MS);
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  for (const col of COLUMNS) {
+    const cards = state[col.id] || [];
+    const el = document.createElement('div');
+    el.className = 'column';
+
+    const colorDots = COLORS.map(c =>
+      `<button class="color-dot" data-cls="${c.cls}" style="background:${c.dot}" title="${c.cls.replace('tag-','')}"></button>`
+    ).join('');
+
+    el.innerHTML = `
+      <div class="column-header">
+        <span class="column-title">${col.label}</span>
+        <span class="column-count">${cards.length}</span>
+      </div>
+      <div class="cards" data-col="${col.id}"></div>
+      <button class="add-card-btn" data-col="${col.id}">+ Add card</button>
+      <div class="add-card-form" id="form-${col.id}">
+        <textarea rows="2" placeholder="Card text…" id="ta-${col.id}"></textarea>
+        <div class="tag-suggestions" id="sugg-${col.id}"></div>
+        <div class="tag-input-row">
+          <input type="text" class="tag-text-input" id="tag-${col.id}" placeholder="Tag (optional)" maxlength="24">
+          <div class="color-dots" id="colors-${col.id}">${colorDots}</div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" data-col="${col.id}">Add</button>
+          <button class="btn-cancel"  data-col="${col.id}">Cancel</button>
+        </div>
+      </div>
+    `;
+
+    board.appendChild(el);
+
+    const zone = el.querySelector('.cards');
+    for (const card of cards) zone.appendChild(buildCard(card, col.id));
+    wireDropZone(zone);
+
+    el.querySelector('.add-card-btn').addEventListener('click', () => openForm(col.id));
+    el.querySelector('.btn-primary').addEventListener('click', () => commitCard(col.id));
+    el.querySelector('.btn-cancel').addEventListener('click',  () => closeForm(col.id));
+    el.querySelector(`#ta-${col.id}`).addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitCard(col.id); }
+      if (e.key === 'Escape') closeForm(col.id);
+    });
+    el.querySelector(`#colors-${col.id}`).addEventListener('click', e => {
+      const dot = e.target.closest('.color-dot');
+      if (!dot) return;
+      const wasSelected = dot.classList.contains('selected');
+      el.querySelectorAll(`#colors-${col.id} .color-dot`).forEach(d => d.classList.remove('selected'));
+      if (!wasSelected) dot.classList.add('selected');
+    });
+  }
+}
+
+function buildCard(card, colId) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.draggable = true;
+  div.dataset.id  = card.id;
+  div.dataset.col = colId;
+
+  div.innerHTML = `
+    <span class="card-text">${esc(card.text)}</span>
+    ${card.tag ? `<span class="card-tag ${card.tagClass}">${esc(card.tag)}</span>` : ''}
+    <button class="card-edit" title="Edit">✎</button>
+    <button class="card-delete" title="Delete">×</button>
+  `;
+
+  div.querySelector('.card-edit').addEventListener('click', e => {
+    e.stopPropagation();
+    openCardEditForm(card, colId, div);
+  });
+
+  div.querySelector('.card-delete').addEventListener('click', e => {
+    e.stopPropagation();
+    state[colId] = state[colId].filter(c => c.id !== card.id);
+    renderBoard();
+    scheduleSave();
+  });
+
+  div.addEventListener('dragstart', e => {
+    dragSrc = { id: card.id, col: colId };
+    div.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', card.id);
+  });
+
+  div.addEventListener('dragend', () => {
+    div.classList.remove('dragging');
+    document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+  });
+
+  return div;
+}
+
+function wireDropZone(zone) {
+  const col = zone.closest('.column');
+
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    col.classList.add('drag-over');
+    const dragging = document.querySelector('.dragging');
+    if (!dragging) return;
+    const after = elementAfterCursor(zone, e.clientY);
+    if (after) zone.insertBefore(dragging, after);
+    else        zone.appendChild(dragging);
+  });
+
+  zone.addEventListener('dragleave', e => {
+    if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+  });
+
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    col.classList.remove('drag-over');
+    if (!dragSrc) return;
+
+    const { id: cardId, col: srcCol } = dragSrc;
+    const tgtCol = zone.dataset.col;
+    dragSrc = null;
+
+    // Splice card out of source
+    const srcArr = state[srcCol];
+    const idx = srcArr.findIndex(c => c.id === cardId);
+    if (idx === -1) return;
+    const [card] = srcArr.splice(idx, 1);
+
+    // Determine new position from DOM order (set by dragover live preview)
+    const tgtArr  = state[tgtCol];
+    const cardEls = [...zone.querySelectorAll('.card')];
+    const dropEl  = zone.querySelector(`[data-id="${cardId}"]`);
+    const newIdx  = dropEl ? cardEls.indexOf(dropEl) : cardEls.length;
+
+    if (newIdx >= 0) tgtArr.splice(newIdx, 0, card);
+    else             tgtArr.push(card);
+
+    renderBoard();
+    scheduleSave();
+  });
+}
+
+function elementAfterCursor(container, y) {
+  return [...container.querySelectorAll('.card:not(.dragging)')]
+    .reduce((closest, child) => {
+      const { top, height } = child.getBoundingClientRect();
+      const offset = y - top - height / 2;
+      return (offset < 0 && offset > closest.offset)
+        ? { offset, element: child }
+        : closest;
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+// ─── Form helpers ─────────────────────────────────────────────────────────────
+function openForm(colId) {
+  document.getElementById(`form-${colId}`).classList.add('open');
+  document.getElementById(`ta-${colId}`).focus();
+  populateSuggestions(colId);
+}
+
+function populateSuggestions(colId) {
+  // Collect unique tags across all columns (preserving first-seen color)
+  const seen = new Map();
+  for (const col of COLUMNS) {
+    for (const card of state[col.id] || []) {
+      if (card.tag && !seen.has(card.tag)) seen.set(card.tag, card.tagClass);
+    }
+  }
+
+  const container = document.getElementById(`sugg-${colId}`);
+  container.innerHTML = '';
+  if (seen.size === 0) return;
+
+  for (const [tag, cls] of seen) {
+    const btn = document.createElement('button');
+    btn.className = `tag-sugg ${cls}`;
+    btn.textContent = tag;
+    btn.addEventListener('click', () => {
+      document.getElementById(`tag-${colId}`).value = tag;
+      document.querySelectorAll(`#colors-${colId} .color-dot`).forEach(d =>
+        d.classList.toggle('selected', d.dataset.cls === cls)
+      );
+    });
+    container.appendChild(btn);
+  }
+}
+
+function closeForm(colId) {
+  const form = document.getElementById(`form-${colId}`);
+  form.classList.remove('open');
+  form.querySelector('textarea').value = '';
+  document.getElementById(`tag-${colId}`).value = '';
+  document.querySelectorAll(`#colors-${colId} .color-dot`).forEach(d => d.classList.remove('selected'));
+}
+
+function commitCard(colId) {
+  const text    = document.getElementById(`ta-${colId}`).value.trim();
+  if (!text) return;
+
+  const tagText = document.getElementById(`tag-${colId}`).value.trim();
+  const selDot  = document.querySelector(`#colors-${colId} .color-dot.selected`);
+  const tagCls  = selDot?.dataset.cls || (tagText ? COLORS[0].cls : null);
+
+  state[colId].push({
+    id:       crypto.randomUUID(),
+    text,
+    tag:      tagText || null,
+    tagClass: tagText ? tagCls : null,
+  });
+
+  closeForm(colId);
+  renderBoard();
+  scheduleSave();
+}
+
+// ─── Inline card edit ─────────────────────────────────────────────────────────
+function openCardEditForm(card, colId, cardEl) {
+  const colorDots = COLORS.map(c =>
+    `<button class="color-dot${card.tagClass === c.cls ? ' selected' : ''}" data-cls="${c.cls}" style="background:${c.dot}" title="${c.cls.replace('tag-','')}"></button>`
+  ).join('');
+
+  const form = document.createElement('div');
+  form.className = 'card-edit-form';
+  form.innerHTML = `
+    <textarea rows="2">${esc(card.text)}</textarea>
+    <div class="tag-suggestions" id="edit-sugg-${card.id}"></div>
+    <div class="tag-input-row">
+      <input type="text" class="tag-text-input" value="${esc(card.tag || '')}" placeholder="Tag (optional)" maxlength="24">
+      <div class="color-dots" id="edit-colors-${card.id}">${colorDots}</div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-primary">Save</button>
+      <button class="btn-cancel">Cancel</button>
+    </div>
+  `;
+
+  // Populate tag suggestions
+  const seen = new Map();
+  for (const col of COLUMNS)
+    for (const c of state[col.id] || [])
+      if (c.tag && !seen.has(c.tag)) seen.set(c.tag, c.tagClass);
+  const suggEl = form.querySelector(`#edit-sugg-${card.id}`);
+  for (const [tag, cls] of seen) {
+    const btn = document.createElement('button');
+    btn.className = `tag-sugg ${cls}`;
+    btn.textContent = tag;
+    btn.addEventListener('click', () => {
+      form.querySelector('.tag-text-input').value = tag;
+      form.querySelectorAll(`#edit-colors-${card.id} .color-dot`).forEach(d =>
+        d.classList.toggle('selected', d.dataset.cls === cls)
+      );
+    });
+    suggEl.appendChild(btn);
+  }
+
+  form.querySelector(`#edit-colors-${card.id}`).addEventListener('click', e => {
+    const dot = e.target.closest('.color-dot');
+    if (!dot) return;
+    const wasSelected = dot.classList.contains('selected');
+    form.querySelectorAll(`#edit-colors-${card.id} .color-dot`).forEach(d => d.classList.remove('selected'));
+    if (!wasSelected) dot.classList.add('selected');
+  });
+
+  form.querySelector('.btn-primary').addEventListener('click', () => {
+    const text = form.querySelector('textarea').value.trim();
+    if (!text) return;
+    const tagText = form.querySelector('.tag-text-input').value.trim();
+    const selDot  = form.querySelector(`#edit-colors-${card.id} .color-dot.selected`);
+    const tagCls  = selDot?.dataset.cls || (tagText ? COLORS[0].cls : null);
+    const idx = state[colId].findIndex(c => c.id === card.id);
+    if (idx !== -1) {
+      state[colId][idx] = { ...card, text, tag: tagText || null, tagClass: tagText ? tagCls : null };
+    }
+    renderBoard();
+    scheduleSave();
+  });
+
+  form.querySelector('.btn-cancel').addEventListener('click', () => {
+    form.replaceWith(cardEl);
+  });
+
+  form.querySelector('textarea').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.querySelector('.btn-primary').click(); }
+    if (e.key === 'Escape') form.querySelector('.btn-cancel').click();
+  });
+
+  cardEl.replaceWith(form);
+  form.querySelector('textarea').focus();
+  const ta = form.querySelector('textarea');
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  setStatus('connecting', 'Connecting…');
+  renderBoard();
+
+  try {
+    if (!binId) {
+      binId = await createBin();
+    }
+
+    // Write bin ID into URL hash and localStorage so every session reuses it.
+    // Share the URL (with hash) to give Sofia access to the same bin.
+    history.replaceState(null, '', '#' + binId);
+    localStorage.setItem('kanban-bin-id', binId);
+
+    try {
+      state = await fetchState();
+    } catch (e) {
+      if (e.notFound) {
+        localStorage.removeItem('kanban-bin-id');
+        binId = await createBin();
+        history.replaceState(null, '', '#' + binId);
+        localStorage.setItem('kanban-bin-id', binId);
+        state = await fetchState();
+      } else {
+        throw e;
+      }
+    }
+
+    renderBoard();
+    setStatus('saved', 'Synced');
+    schedulePoll();
+  } catch (e) {
+    setStatus('error', 'Could not connect');
+    console.error(e);
+  }
+}
+
+document.getElementById('refresh-btn').addEventListener('click', async () => {
+  if (!binId) return;
+  setStatus('connecting', 'Syncing…');
+  try {
+    state = await fetchState();
+    renderBoard();
+    setStatus('saved', 'Synced');
+  } catch (e) {
+    setStatus('error', 'Sync failed');
+  }
+});
+
+init();
+</script>
+</body>
+</html>
