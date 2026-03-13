@@ -263,63 +263,109 @@
 
     .add-card-form textarea:focus { border-color: rgba(0,0,0,0.35); }
 
-    .tag-input-row {
+    .label-picker { position: relative; }
+
+    .label-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-family: inherit;
+      border-radius: 20px;
+      border: 0.5px dashed rgba(0,0,0,0.2);
+      background: none;
+      cursor: pointer;
+      color: #888780;
+      transition: background 0.1s, color 0.1s;
+    }
+
+    .label-trigger:hover { background: rgba(0,0,0,0.04); color: #5f5e5a; }
+
+    .label-panel {
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0;
+      z-index: 100;
+      background: #fff;
+      border: 0.5px solid rgba(0,0,0,0.12);
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      padding: 6px;
+      min-width: 190px;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .label-panel.open { display: flex; }
+
+    .label-option {
       display: flex;
       align-items: center;
       gap: 8px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: none;
+      background: none;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: left;
+      width: 100%;
+      color: #1a1a18;
+      transition: background 0.1s;
     }
 
-    .tag-text-input {
-      flex: 1;
-      min-width: 0;
+    .label-option:hover { background: rgba(0,0,0,0.04); }
+    .label-option.selected { background: rgba(0,0,0,0.06); font-weight: 500; }
+
+    .label-option-swatch {
+      width: 11px; height: 11px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      border: 0.5px solid rgba(0,0,0,0.1);
+    }
+
+    .label-sep { height: 0.5px; background: rgba(0,0,0,0.08); margin: 4px 2px; }
+
+    .label-new-section {
+      padding: 4px 4px 2px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .label-new-section input {
+      width: 100%;
       border: 0.5px solid rgba(0,0,0,0.2);
       border-radius: 6px;
       padding: 5px 8px;
       font-size: 12px;
       font-family: inherit;
       color: #1a1a18;
-      background: #fff;
+      background: #fafafa;
       outline: none;
     }
 
-    .tag-text-input:focus { border-color: rgba(0,0,0,0.35); }
-    .tag-text-input::placeholder { color: #b8b7b2; }
+    .label-new-section input:focus { border-color: rgba(0,0,0,0.35); background: #fff; }
+    .label-new-section input::placeholder { color: #b8b7b2; }
 
-    .color-dots { display: flex; gap: 5px; flex-shrink: 0; }
+    .label-color-row { display: flex; gap: 6px; }
 
-    .color-dot {
-      width: 15px; height: 15px;
+    .label-color-dot {
+      width: 18px; height: 18px;
       border-radius: 50%;
-      border: 1.5px solid transparent;
+      border: 2px solid transparent;
       cursor: pointer;
       padding: 0;
+      flex-shrink: 0;
       transition: transform 0.1s;
       outline: none;
     }
 
-    .color-dot:hover { transform: scale(1.2); }
-    .color-dot.selected {
-      border-color: rgba(0,0,0,0.35);
-      box-shadow: inset 0 0 0 2px #fff;
-    }
-
-    .tag-suggestions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
-
-    .tag-sugg {
-      padding: 2px 7px;
-      border-radius: 20px;
-      border: 0.5px solid rgba(0,0,0,0.08);
-      font-size: 11px;
-      font-family: inherit;
-      cursor: pointer;
-      transition: opacity 0.1s;
-    }
-
-    .tag-sugg:hover { opacity: 0.7; }
+    .label-color-dot:hover { transform: scale(1.15); }
+    .label-color-dot.selected { border-color: rgba(0,0,0,0.4); box-shadow: inset 0 0 0 2px #fff; }
 
     .form-actions { display: flex; gap: 6px; }
 
@@ -395,6 +441,7 @@ let saveTimer  = null;
 let pollTimer  = null;
 let dragSrc    = null;   // { id, col }
 let isSaving   = false;
+const pickers  = new Map(); // colId/cardId → picker instance
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 function setStatus(kind, msg) {
@@ -480,10 +527,6 @@ function renderBoard() {
     const el = document.createElement('div');
     el.className = 'column';
 
-    const colorDots = COLORS.map(c =>
-      `<button class="color-dot" data-cls="${c.cls}" style="background:${c.dot}" title="${c.cls.replace('tag-','')}"></button>`
-    ).join('');
-
     el.innerHTML = `
       <div class="column-header">
         <span class="column-title">${col.label}</span>
@@ -493,11 +536,7 @@ function renderBoard() {
       <button class="add-card-btn" data-col="${col.id}">+ Add card</button>
       <div class="add-card-form" id="form-${col.id}">
         <textarea rows="2" placeholder="Card text…" id="ta-${col.id}"></textarea>
-        <div class="tag-suggestions" id="sugg-${col.id}"></div>
-        <div class="tag-input-row">
-          <input type="text" class="tag-text-input" id="tag-${col.id}" placeholder="Tag (optional)" maxlength="24">
-          <div class="color-dots" id="colors-${col.id}">${colorDots}</div>
-        </div>
+        <div class="label-picker" id="lp-${col.id}"></div>
         <div class="form-actions">
           <button class="btn-primary" data-col="${col.id}">Add</button>
           <button class="btn-cancel"  data-col="${col.id}">Cancel</button>
@@ -517,13 +556,6 @@ function renderBoard() {
     el.querySelector(`#ta-${col.id}`).addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitCard(col.id); }
       if (e.key === 'Escape') closeForm(col.id);
-    });
-    el.querySelector(`#colors-${col.id}`).addEventListener('click', e => {
-      const dot = e.target.closest('.color-dot');
-      if (!dot) return;
-      const wasSelected = dot.classList.contains('selected');
-      el.querySelectorAll(`#colors-${col.id} .color-dot`).forEach(d => d.classList.remove('selected'));
-      if (!wasSelected) dot.classList.add('selected');
     });
   }
 }
@@ -647,128 +679,171 @@ function elementAfterCursor(container, y) {
 function openForm(colId) {
   document.getElementById(`form-${colId}`).classList.add('open');
   document.getElementById(`ta-${colId}`).focus();
-  populateSuggestions(colId);
-}
-
-function populateSuggestions(colId) {
-  // Collect unique tags across all columns (preserving first-seen color)
-  const seen = new Map();
-  for (const col of COLUMNS) {
-    for (const card of state[col.id] || []) {
-      if (card.tag && !seen.has(card.tag)) seen.set(card.tag, card.tagClass);
-    }
-  }
-
-  const container = document.getElementById(`sugg-${colId}`);
-  container.innerHTML = '';
-  if (seen.size === 0) return;
-
-  for (const [tag, cls] of seen) {
-    const btn = document.createElement('button');
-    btn.className = `tag-sugg ${cls}`;
-    btn.textContent = tag;
-    btn.addEventListener('click', () => {
-      document.getElementById(`tag-${colId}`).value = tag;
-      document.querySelectorAll(`#colors-${colId} .color-dot`).forEach(d =>
-        d.classList.toggle('selected', d.dataset.cls === cls)
-      );
-    });
-    container.appendChild(btn);
-  }
+  pickers.set(colId, buildLabelPicker(document.getElementById(`lp-${colId}`), null, null));
 }
 
 function closeForm(colId) {
   const form = document.getElementById(`form-${colId}`);
   form.classList.remove('open');
   form.querySelector('textarea').value = '';
-  document.getElementById(`tag-${colId}`).value = '';
-  document.querySelectorAll(`#colors-${colId} .color-dot`).forEach(d => d.classList.remove('selected'));
+  pickers.delete(colId);
 }
 
 function commitCard(colId) {
-  const text    = document.getElementById(`ta-${colId}`).value.trim();
+  const text = document.getElementById(`ta-${colId}`).value.trim();
   if (!text) return;
-
-  const tagText = document.getElementById(`tag-${colId}`).value.trim();
-  const selDot  = document.querySelector(`#colors-${colId} .color-dot.selected`);
-  const tagCls  = selDot?.dataset.cls || (tagText ? COLORS[0].cls : null);
-
-  state[colId].push({
-    id:       crypto.randomUUID(),
-    text,
-    tag:      tagText || null,
-    tagClass: tagText ? tagCls : null,
-  });
-
+  const { tag, tagClass } = pickers.get(colId)?.getValue() ?? {};
+  state[colId].push({ id: crypto.randomUUID(), text, tag: tag || null, tagClass: tag ? tagClass : null });
   closeForm(colId);
   renderBoard();
   scheduleSave();
 }
 
-// ─── Inline card edit ─────────────────────────────────────────────────────────
-function openCardEditForm(card, colId, cardEl) {
-  const colorDots = COLORS.map(c =>
-    `<button class="color-dot${card.tagClass === c.cls ? ' selected' : ''}" data-cls="${c.cls}" style="background:${c.dot}" title="${c.cls.replace('tag-','')}"></button>`
+// ─── Label picker ─────────────────────────────────────────────────────────────
+function buildLabelPicker(container, initialTag, initialTagClass) {
+  let selTag = initialTag || null;
+  let selCls = initialTagClass || COLORS[0].cls;
+
+  // Collect existing labels
+  const existing = new Map();
+  for (const col of COLUMNS)
+    for (const c of state[col.id] || [])
+      if (c.tag && !existing.has(c.tag)) existing.set(c.tag, c.tagClass);
+
+  const colorDotsHtml = COLORS.map(c =>
+    `<button type="button" class="label-color-dot${selCls === c.cls ? ' selected' : ''}" data-cls="${c.cls}" style="background:${c.dot}"></button>`
   ).join('');
 
+  container.innerHTML = `
+    <button type="button" class="label-trigger"></button>
+    <div class="label-panel">
+      <div class="label-options"></div>
+      <div class="label-sep"></div>
+      <div class="label-new-section">
+        <input type="text" placeholder="New label…" maxlength="24">
+        <div class="label-color-row">${colorDotsHtml}</div>
+      </div>
+    </div>
+  `;
+
+  const trigger   = container.querySelector('.label-trigger');
+  const panel     = container.querySelector('.label-panel');
+  const optionsEl = container.querySelector('.label-options');
+  const newInput  = container.querySelector('.label-new-section input');
+  const colorRow  = container.querySelector('.label-color-row');
+
+  function updateTrigger() {
+    if (selTag) {
+      trigger.className = `label-trigger card-tag ${selCls}`;
+      trigger.textContent = selTag + ' ▾';
+    } else {
+      trigger.className = 'label-trigger';
+      trigger.textContent = '+ Label';
+    }
+  }
+
+  function buildOptions() {
+    optionsEl.innerHTML = '';
+    const noneBtn = document.createElement('button');
+    noneBtn.type = 'button';
+    noneBtn.className = 'label-option' + (!selTag ? ' selected' : '');
+    noneBtn.innerHTML = `<span class="label-option-swatch" style="background:#ddd"></span>None`;
+    noneBtn.addEventListener('click', () => {
+      selTag = null; selCls = COLORS[0].cls;
+      newInput.value = '';
+      updateTrigger(); buildOptions(); panel.classList.remove('open');
+    });
+    optionsEl.appendChild(noneBtn);
+
+    for (const [tag, cls] of existing) {
+      const dotColor = COLORS.find(c => c.cls === cls)?.dot || '#ddd';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'label-option' + (selTag === tag ? ' selected' : '');
+      btn.innerHTML = `<span class="label-option-swatch" style="background:${dotColor}"></span>${esc(tag)}`;
+      btn.addEventListener('click', () => {
+        selTag = tag; selCls = cls;
+        newInput.value = '';
+        colorRow.querySelectorAll('.label-color-dot').forEach(d =>
+          d.classList.toggle('selected', d.dataset.cls === cls)
+        );
+        updateTrigger(); buildOptions(); panel.classList.remove('open');
+      });
+      optionsEl.appendChild(btn);
+    }
+  }
+
+  trigger.addEventListener('click', e => { e.stopPropagation(); panel.classList.toggle('open'); });
+
+  document.addEventListener('click', function onOutside(e) {
+    if (!container.contains(e.target)) {
+      panel.classList.remove('open');
+      document.removeEventListener('click', onOutside);
+    }
+  });
+
+  colorRow.addEventListener('click', e => {
+    const dot = e.target.closest('.label-color-dot');
+    if (!dot) return;
+    colorRow.querySelectorAll('.label-color-dot').forEach(d => d.classList.remove('selected'));
+    dot.classList.add('selected');
+    selCls = dot.dataset.cls;
+    if (selTag && !newInput.value.trim()) {
+      // update color of selected existing label
+      existing.set(selTag, selCls);
+      updateTrigger();
+    }
+  });
+
+  newInput.addEventListener('keydown', e => e.stopPropagation());
+  newInput.addEventListener('input', () => {
+    const val = newInput.value.trim();
+    if (val) { selTag = val; updateTrigger(); }
+  });
+
+  buildOptions();
+  updateTrigger();
+
+  return {
+    getValue() {
+      const typed = newInput.value.trim();
+      return { tag: typed || selTag || null, tagClass: selCls };
+    }
+  };
+}
+
+// ─── Inline card edit ─────────────────────────────────────────────────────────
+function openCardEditForm(card, colId, cardEl) {
   const form = document.createElement('div');
   form.className = 'card-edit-form';
   form.innerHTML = `
     <textarea rows="2">${esc(card.text)}</textarea>
-    <div class="tag-suggestions" id="edit-sugg-${card.id}"></div>
-    <div class="tag-input-row">
-      <input type="text" class="tag-text-input" value="${esc(card.tag || '')}" placeholder="Tag (optional)" maxlength="24">
-      <div class="color-dots" id="edit-colors-${card.id}">${colorDots}</div>
-    </div>
+    <div class="label-picker" id="lp-edit-${card.id}"></div>
     <div class="form-actions">
       <button class="btn-primary">Save</button>
       <button class="btn-cancel">Cancel</button>
-      ${card.tag ? `<button class="btn-cancel tag-clear-btn" style="margin-left:auto;font-size:11px;">Remove label</button>` : ''}
     </div>
   `;
 
-  // Populate tag suggestions
-  const seen = new Map();
-  for (const col of COLUMNS)
-    for (const c of state[col.id] || [])
-      if (c.tag && !seen.has(c.tag)) seen.set(c.tag, c.tagClass);
-  const suggEl = form.querySelector(`#edit-sugg-${card.id}`);
-  for (const [tag, cls] of seen) {
-    const btn = document.createElement('button');
-    btn.className = `tag-sugg ${cls}`;
-    btn.textContent = tag;
-    btn.addEventListener('click', () => {
-      form.querySelector('.tag-text-input').value = tag;
-      form.querySelectorAll(`#edit-colors-${card.id} .color-dot`).forEach(d =>
-        d.classList.toggle('selected', d.dataset.cls === cls)
-      );
-    });
-    suggEl.appendChild(btn);
-  }
-
-  form.querySelector(`#edit-colors-${card.id}`).addEventListener('click', e => {
-    const dot = e.target.closest('.color-dot');
-    if (!dot) return;
-    const wasSelected = dot.classList.contains('selected');
-    form.querySelectorAll(`#edit-colors-${card.id} .color-dot`).forEach(d => d.classList.remove('selected'));
-    if (!wasSelected) dot.classList.add('selected');
-  });
+  cardEl.replaceWith(form);
+  const picker = buildLabelPicker(
+    form.querySelector(`#lp-edit-${card.id}`),
+    card.tag, card.tagClass
+  );
 
   form.querySelector('.btn-primary').addEventListener('click', () => {
     const text = form.querySelector('textarea').value.trim();
     if (!text) return;
-    const tagText = form.querySelector('.tag-text-input').value.trim();
-    const selDot  = form.querySelector(`#edit-colors-${card.id} .color-dot.selected`);
-    const tagCls  = selDot?.dataset.cls || (tagText ? COLORS[0].cls : null);
+    const { tag, tagClass } = picker.getValue();
     const idx = state[colId].findIndex(c => c.id === card.id);
     if (idx !== -1) {
-      state[colId][idx] = { ...card, text, tag: tagText || null, tagClass: tagText ? tagCls : null };
+      state[colId][idx] = { ...card, text, tag: tag || null, tagClass: tag ? tagClass : null };
     }
     // Propagate color change to all cards sharing the same label
-    if (tagText && tagCls) {
+    if (tag && tagClass) {
       for (const col of COLUMNS) {
         state[col.id] = state[col.id].map(c =>
-          c.id !== card.id && c.tag === tagText ? { ...c, tagClass: tagCls } : c
+          c.id !== card.id && c.tag === tag ? { ...c, tagClass } : c
         );
       }
     }
@@ -776,28 +851,14 @@ function openCardEditForm(card, colId, cardEl) {
     scheduleSave();
   });
 
-  form.querySelector('.btn-cancel').addEventListener('click', () => {
-    form.replaceWith(cardEl);
-  });
+  form.querySelector('.btn-cancel').addEventListener('click', () => form.replaceWith(cardEl));
 
-  const clearBtn = form.querySelector('.tag-clear-btn');
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      const idx = state[colId].findIndex(c => c.id === card.id);
-      if (idx !== -1) { state[colId][idx] = { ...card, tag: null, tagClass: null }; }
-      renderBoard();
-      scheduleSave();
-    });
-  }
-
-  form.querySelector('textarea').addEventListener('keydown', e => {
+  const ta = form.querySelector('textarea');
+  ta.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.querySelector('.btn-primary').click(); }
     if (e.key === 'Escape') form.querySelector('.btn-cancel').click();
   });
-
-  cardEl.replaceWith(form);
-  form.querySelector('textarea').focus();
-  const ta = form.querySelector('textarea');
+  ta.focus();
   ta.setSelectionRange(ta.value.length, ta.value.length);
 }
 
