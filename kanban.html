@@ -789,10 +789,14 @@ function buildLabelPicker(container, initialTag, initialTagClass) {
     }
   });
 
-  newInput.addEventListener('keydown', e => e.stopPropagation());
+  newInput.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); panel.classList.remove('open'); }
+  });
   newInput.addEventListener('input', () => {
     const val = newInput.value.trim();
-    if (val) { selTag = val; updateTrigger(); }
+    selTag = val || null;
+    updateTrigger();
   });
 
   buildOptions();
