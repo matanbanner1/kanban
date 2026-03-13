@@ -125,11 +125,24 @@
     .card:active { cursor: grabbing; }
     .card.dragging { opacity: 0.4; }
 
-    .card-text {
+    .card-title {
       font-size: 14px;
+      font-weight: 500;
       color: #1a1a18;
       line-height: 1.4;
       word-break: break-word;
+    }
+
+    .card-body {
+      font-size: 12px;
+      color: #888780;
+      line-height: 1.4;
+      margin-top: 4px;
+      word-break: break-word;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
     }
 
     .card-tag {
@@ -200,6 +213,7 @@
       gap: 7px;
     }
 
+    .card-edit-form input[type="text"],
     .card-edit-form textarea {
       width: 100%;
       resize: none;
@@ -213,6 +227,7 @@
       outline: none;
     }
 
+    .card-edit-form input[type="text"]:focus,
     .card-edit-form textarea:focus { border-color: rgba(0,0,0,0.35); }
 
     .add-card-btn {
@@ -241,6 +256,7 @@
 
     .add-card-form.open { display: flex; }
 
+    .add-card-form input[type="text"],
     .add-card-form textarea {
       width: 100%;
       resize: none;
@@ -254,6 +270,7 @@
       outline: none;
     }
 
+    .add-card-form input[type="text"]:focus,
     .add-card-form textarea:focus { border-color: rgba(0,0,0,0.35); }
 
     .label-picker { position: relative; }
@@ -530,7 +547,8 @@ function renderBoard() {
       <div class="cards" data-col="${col.id}"></div>
       <button class="add-card-btn" data-col="${col.id}">+ Add card</button>
       <div class="add-card-form" id="form-${col.id}">
-        <textarea rows="2" placeholder="Card text…" id="ta-${col.id}"></textarea>
+        <input type="text" placeholder="Title…" id="title-${col.id}">
+        <textarea rows="2" placeholder="Details (optional)…" id="body-${col.id}"></textarea>
         <div class="label-picker" id="lp-${col.id}"></div>
         <div class="form-actions">
           <button class="btn-primary" data-col="${col.id}">Add</button>
@@ -548,8 +566,11 @@ function renderBoard() {
     el.querySelector('.add-card-btn').addEventListener('click', () => openForm(col.id));
     el.querySelector('.btn-primary').addEventListener('click', () => commitCard(col.id));
     el.querySelector('.btn-cancel').addEventListener('click',  () => closeForm(col.id));
-    el.querySelector(`#ta-${col.id}`).addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitCard(col.id); }
+    el.querySelector(`#title-${col.id}`).addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); commitCard(col.id); }
+      if (e.key === 'Escape') closeForm(col.id);
+    });
+    el.querySelector(`#body-${col.id}`).addEventListener('keydown', e => {
       if (e.key === 'Escape') closeForm(col.id);
     });
   }
@@ -562,8 +583,11 @@ function buildCard(card, colId) {
   div.dataset.id  = card.id;
   div.dataset.col = colId;
 
+  const displayTitle = card.title || card.text || '';
+  const displayBody  = card.body  || '';
   div.innerHTML = `
-    <span class="card-text">${esc(card.text)}</span>
+    <span class="card-title">${esc(displayTitle)}</span>
+    ${displayBody ? `<p class="card-body">${esc(displayBody)}</p>` : ''}
     ${card.tag ? `<span class="card-tag ${card.tagClass}">${esc(card.tag)}<button class="card-tag-remove" title="Remove label">×</button></span>` : ''}
     <button class="card-edit" title="Edit">✎</button>
     <button class="card-delete" title="Delete">×</button>
@@ -673,22 +697,24 @@ function elementAfterCursor(container, y) {
 // ─── Form helpers ─────────────────────────────────────────────────────────────
 function openForm(colId) {
   document.getElementById(`form-${colId}`).classList.add('open');
-  document.getElementById(`ta-${colId}`).focus();
+  document.getElementById(`title-${colId}`).focus();
   pickers.set(colId, buildLabelPicker(document.getElementById(`lp-${colId}`), null, null));
 }
 
 function closeForm(colId) {
   const form = document.getElementById(`form-${colId}`);
   form.classList.remove('open');
+  form.querySelector('input[type="text"]').value = '';
   form.querySelector('textarea').value = '';
   pickers.delete(colId);
 }
 
 function commitCard(colId) {
-  const text = document.getElementById(`ta-${colId}`).value.trim();
-  if (!text) return;
+  const title = document.getElementById(`title-${colId}`).value.trim();
+  const body  = document.getElementById(`body-${colId}`).value.trim();
+  if (!title) return;
   const { tag, tagClass } = pickers.get(colId)?.getValue() ?? {};
-  state[colId].push({ id: crypto.randomUUID(), text, tag: tag || null, tagClass: tag ? tagClass : null });
+  state[colId].push({ id: crypto.randomUUID(), title, body: body || null, tag: tag || null, tagClass: tag ? tagClass : null });
   closeForm(colId);
   renderBoard();
   scheduleSave();
@@ -825,8 +851,11 @@ function buildLabelPicker(container, initialTag, initialTagClass) {
 function openCardEditForm(card, colId, cardEl) {
   const form = document.createElement('div');
   form.className = 'card-edit-form';
+  const cardTitle = card.title || card.text || '';
+  const cardBody  = card.body  || '';
   form.innerHTML = `
-    <textarea rows="2">${esc(card.text)}</textarea>
+    <input type="text" value="${esc(cardTitle)}" placeholder="Title…">
+    <textarea rows="2" placeholder="Details (optional)…">${esc(cardBody)}</textarea>
     <div class="label-picker" id="lp-edit-${card.id}"></div>
     <div class="form-actions">
       <button class="btn-primary">Save</button>
@@ -841,12 +870,13 @@ function openCardEditForm(card, colId, cardEl) {
   );
 
   form.querySelector('.btn-primary').addEventListener('click', () => {
-    const text = form.querySelector('textarea').value.trim();
-    if (!text) return;
+    const title = form.querySelector('input[type="text"]').value.trim();
+    const body  = form.querySelector('textarea').value.trim();
+    if (!title) return;
     const { tag, tagClass } = picker.getValue();
     const idx = state[colId].findIndex(c => c.id === card.id);
     if (idx !== -1) {
-      state[colId][idx] = { ...card, text, tag: tag || null, tagClass: tag ? tagClass : null };
+      state[colId][idx] = { ...card, title, body: body || null, tag: tag || null, tagClass: tag ? tagClass : null };
     }
     // Propagate color change to all cards sharing the same label
     if (tag && tagClass) {
@@ -862,13 +892,16 @@ function openCardEditForm(card, colId, cardEl) {
 
   form.querySelector('.btn-cancel').addEventListener('click', () => form.replaceWith(cardEl));
 
-  const ta = form.querySelector('textarea');
-  ta.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.querySelector('.btn-primary').click(); }
+  const titleInput = form.querySelector('input[type="text"]');
+  titleInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); form.querySelector('.btn-primary').click(); }
     if (e.key === 'Escape') form.querySelector('.btn-cancel').click();
   });
-  ta.focus();
-  ta.setSelectionRange(ta.value.length, ta.value.length);
+  form.querySelector('textarea').addEventListener('keydown', e => {
+    if (e.key === 'Escape') form.querySelector('.btn-cancel').click();
+  });
+  titleInput.focus();
+  titleInput.setSelectionRange(titleInput.value.length, titleInput.value.length);
 }
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
