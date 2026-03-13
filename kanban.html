@@ -276,6 +276,8 @@
 
     .label-trigger:hover { background: rgba(0,0,0,0.04); color: #5f5e5a; }
 
+    button.card-tag { cursor: pointer; }
+
     .label-panel {
       position: absolute;
       top: calc(100% + 5px);
@@ -728,7 +730,7 @@ function buildLabelPicker(container, initialTag, initialTagClass) {
 
   function updateTrigger() {
     if (selTag) {
-      trigger.className = `label-trigger card-tag ${selCls}`;
+      trigger.className = `card-tag ${selCls}`;
       trigger.textContent = selTag + ' ▾';
     } else {
       trigger.className = 'label-trigger';
@@ -745,7 +747,7 @@ function buildLabelPicker(container, initialTag, initialTagClass) {
     noneBtn.addEventListener('click', () => {
       selTag = null; selCls = COLORS[0].cls;
       newInput.value = '';
-      updateTrigger(); buildOptions(); panel.classList.remove('open');
+      updateTrigger(); buildOptions(); dismissPanel();
     });
     optionsEl.appendChild(noneBtn);
 
@@ -761,17 +763,27 @@ function buildLabelPicker(container, initialTag, initialTagClass) {
         colorRow.querySelectorAll('.label-color-dot').forEach(d =>
           d.classList.toggle('selected', d.dataset.cls === cls)
         );
-        updateTrigger(); buildOptions(); panel.classList.remove('open');
+        updateTrigger(); buildOptions(); dismissPanel();
       });
       optionsEl.appendChild(btn);
     }
   }
 
-  trigger.addEventListener('click', e => { e.stopPropagation(); panel.classList.toggle('open'); });
+  function onOutside(e) {
+    if (!container.contains(e.target)) dismissPanel();
+  }
 
-  document.addEventListener('click', function onOutside(e) {
-    if (!container.contains(e.target)) {
-      panel.classList.remove('open');
+  function dismissPanel() {
+    panel.classList.remove('open');
+    document.removeEventListener('click', onOutside);
+  }
+
+  trigger.addEventListener('click', e => {
+    e.stopPropagation();
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) {
+      document.addEventListener('click', onOutside);
+    } else {
       document.removeEventListener('click', onOutside);
     }
   });
@@ -785,13 +797,13 @@ function buildLabelPicker(container, initialTag, initialTagClass) {
     if (selTag && !newInput.value.trim()) {
       // update color of selected existing label
       existing.set(selTag, selCls);
-      updateTrigger();
     }
+    updateTrigger();
   });
 
   newInput.addEventListener('keydown', e => {
     e.stopPropagation();
-    if (e.key === 'Enter') { e.preventDefault(); panel.classList.remove('open'); }
+    if (e.key === 'Enter') { e.preventDefault(); dismissPanel(); }
   });
   newInput.addEventListener('input', () => {
     const val = newInput.value.trim();
