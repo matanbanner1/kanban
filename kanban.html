@@ -134,12 +134,30 @@
     }
 
     .card-tag {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       margin-top: 6px;
       font-size: 11px;
-      padding: 2px 7px;
+      padding: 2px 5px 2px 7px;
       border-radius: 20px;
     }
+
+    .card-tag-remove {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      padding: 0;
+      color: inherit;
+      opacity: 0.5;
+      transition: opacity 0.1s;
+    }
+
+    .card-tag-remove:hover { opacity: 1; }
+    .card:hover .card-tag-remove { display: inline; }
 
     .tag-blue   { background: #E6F1FB; color: #0C447C; }
     .tag-green  { background: #EAF3DE; color: #3B6D11; }
@@ -513,7 +531,7 @@ function buildCard(card, colId) {
 
   div.innerHTML = `
     <span class="card-text">${esc(card.text)}</span>
-    ${card.tag ? `<span class="card-tag ${card.tagClass}">${esc(card.tag)}</span>` : ''}
+    ${card.tag ? `<span class="card-tag ${card.tagClass}">${esc(card.tag)}<button class="card-tag-remove" title="Remove label">×</button></span>` : ''}
     <button class="card-edit" title="Edit">✎</button>
     <button class="card-delete" title="Delete">×</button>
   `;
@@ -522,6 +540,17 @@ function buildCard(card, colId) {
     e.stopPropagation();
     openCardEditForm(card, colId, div);
   });
+
+  const tagRemove = div.querySelector('.card-tag-remove');
+  if (tagRemove) {
+    tagRemove.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = state[colId].findIndex(c => c.id === card.id);
+      if (idx !== -1) { state[colId][idx] = { ...card, tag: null, tagClass: null }; }
+      renderBoard();
+      scheduleSave();
+    });
+  }
 
   div.querySelector('.card-delete').addEventListener('click', e => {
     e.stopPropagation();
@@ -683,6 +712,7 @@ function openCardEditForm(card, colId, cardEl) {
     <div class="form-actions">
       <button class="btn-primary">Save</button>
       <button class="btn-cancel">Cancel</button>
+      ${card.tag ? `<button class="btn-cancel tag-clear-btn" style="margin-left:auto;font-size:11px;">Remove label</button>` : ''}
     </div>
   `;
 
@@ -730,6 +760,16 @@ function openCardEditForm(card, colId, cardEl) {
   form.querySelector('.btn-cancel').addEventListener('click', () => {
     form.replaceWith(cardEl);
   });
+
+  const clearBtn = form.querySelector('.tag-clear-btn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      const idx = state[colId].findIndex(c => c.id === card.id);
+      if (idx !== -1) { state[colId][idx] = { ...card, tag: null, tagClass: null }; }
+      renderBoard();
+      scheduleSave();
+    });
+  }
 
   form.querySelector('textarea').addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.querySelector('.btn-primary').click(); }
