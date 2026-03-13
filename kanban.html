@@ -764,6 +764,14 @@ function openCardEditForm(card, colId, cardEl) {
     if (idx !== -1) {
       state[colId][idx] = { ...card, text, tag: tagText || null, tagClass: tagText ? tagCls : null };
     }
+    // Propagate color change to all cards sharing the same label
+    if (tagText && tagCls) {
+      for (const col of COLUMNS) {
+        state[col.id] = state[col.id].map(c =>
+          c.id !== card.id && c.tag === tagText ? { ...c, tagClass: tagCls } : c
+        );
+      }
+    }
     renderBoard();
     scheduleSave();
   });
