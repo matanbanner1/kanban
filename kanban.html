@@ -4,13 +4,119 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Shared Kanban</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1a1a18" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* ─── Theme variables (light) ─────────────────────────────────────────── */
+    :root {
+      --bg:            #f5f4f0;
+      --text:          #1a1a18;
+      --text-2:        #5f5e5a;
+      --text-3:        #888780;
+      --text-4:        #bbb9b4;
+      --surface:       #ffffff;
+      --surface-2:     #fafafa;
+      --col-bg:        #eeece6;
+      --border:        rgba(0,0,0,0.1);
+      --border-2:      rgba(0,0,0,0.15);
+      --border-3:      rgba(0,0,0,0.2);
+      --border-focus:  rgba(0,0,0,0.35);
+      --border-sep:    rgba(0,0,0,0.08);
+      --border-dash:   rgba(0,0,0,0.15);
+      --hover:         rgba(0,0,0,0.04);
+      --hover-sm:      rgba(0,0,0,0.03);
+      --hover-2:       rgba(0,0,0,0.06);
+      --shadow:        rgba(0,0,0,0.1);
+      --btn-bg:        #1a1a18;
+      --btn-text:      #f5f4f0;
+      --dot-selected:  rgba(0,0,0,0.4);
+      --dot-inner:     #fff;
+      --placeholder:   #b8b7b2;
+      --drag-outline:  rgba(0,0,0,0.2);
+      --col-todo-bg:        #fae8e8;
+      --col-todo-border:    rgba(180,60,60,0.15);
+      --col-ip-bg:          #faf6e0;
+      --col-ip-border:      rgba(160,130,0,0.15);
+      --col-done-bg:        #e8f4ea;
+      --col-done-border:    rgba(40,130,60,0.15);
+    }
+
+    /* ─── Dark theme variables ─────────────────────────────────────────────── */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg:            #16161a;
+        --text:          #e8e8e4;
+        --text-2:        #b0afa8;
+        --text-3:        #888780;
+        --text-4:        #555550;
+        --surface:       #252523;
+        --surface-2:     #1e1e1c;
+        --col-bg:        #1e1e1c;
+        --border:        rgba(255,255,255,0.08);
+        --border-2:      rgba(255,255,255,0.1);
+        --border-3:      rgba(255,255,255,0.15);
+        --border-focus:  rgba(255,255,255,0.35);
+        --border-sep:    rgba(255,255,255,0.08);
+        --border-dash:   rgba(255,255,255,0.1);
+        --hover:         rgba(255,255,255,0.05);
+        --hover-sm:      rgba(255,255,255,0.04);
+        --hover-2:       rgba(255,255,255,0.08);
+        --shadow:        rgba(0,0,0,0.4);
+        --btn-bg:        #e8e8e4;
+        --btn-text:      #1a1a18;
+        --dot-selected:  rgba(255,255,255,0.5);
+        --dot-inner:     #252523;
+        --placeholder:   #555550;
+        --drag-outline:  rgba(255,255,255,0.2);
+        --col-todo-bg:        #2a1c1c;
+        --col-todo-border:    rgba(180,60,60,0.3);
+        --col-ip-bg:          #272510;
+        --col-ip-border:      rgba(160,130,0,0.3);
+        --col-done-bg:        #162218;
+        --col-done-border:    rgba(40,130,60,0.3);
+      }
+    }
+
+    html[data-theme="dark"] {
+      --bg:            #16161a;
+      --text:          #e8e8e4;
+      --text-2:        #b0afa8;
+      --text-3:        #888780;
+      --text-4:        #555550;
+      --surface:       #252523;
+      --surface-2:     #1e1e1c;
+      --col-bg:        #1e1e1c;
+      --border:        rgba(255,255,255,0.08);
+      --border-2:      rgba(255,255,255,0.1);
+      --border-3:      rgba(255,255,255,0.15);
+      --border-focus:  rgba(255,255,255,0.35);
+      --border-sep:    rgba(255,255,255,0.08);
+      --border-dash:   rgba(255,255,255,0.1);
+      --hover:         rgba(255,255,255,0.05);
+      --hover-sm:      rgba(255,255,255,0.04);
+      --hover-2:       rgba(255,255,255,0.08);
+      --shadow:        rgba(0,0,0,0.4);
+      --btn-bg:        #e8e8e4;
+      --btn-text:      #1a1a18;
+      --dot-selected:  rgba(255,255,255,0.5);
+      --dot-inner:     #252523;
+      --placeholder:   #555550;
+      --drag-outline:  rgba(255,255,255,0.2);
+      --col-todo-bg:        #2a1c1c;
+      --col-todo-border:    rgba(180,60,60,0.3);
+      --col-ip-bg:          #272510;
+      --col-ip-border:      rgba(160,130,0,0.3);
+      --col-done-bg:        #162218;
+      --col-done-border:    rgba(40,130,60,0.3);
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f5f4f0;
-      color: #1a1a18;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
       padding: 24px;
     }
@@ -22,14 +128,14 @@
       margin-bottom: 20px;
     }
 
-    h1 { font-size: 18px; font-weight: 500; color: #1a1a18; }
+    h1 { font-size: 18px; font-weight: 500; color: var(--text); }
 
     #status {
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 12px;
-      color: #888780;
+      color: var(--text-3);
     }
 
     #status-dot {
@@ -45,18 +151,18 @@
     #status-dot.saved      { background: #5fa85a; }
     #status-dot.error      { background: #c0392b; }
 
-    #refresh-btn {
+    #refresh-btn, #theme-btn {
       background: none;
-      border: 0.5px solid rgba(0,0,0,0.15);
+      border: 0.5px solid var(--border-2);
       cursor: pointer;
-      color: #888780;
+      color: var(--text-3);
       font-size: 11px;
       padding: 2px 7px;
       border-radius: 4px;
       font-family: inherit;
       transition: background 0.1s, color 0.1s;
     }
-    #refresh-btn:hover { background: rgba(0,0,0,0.04); color: #5f5e5a; }
+    #refresh-btn:hover, #theme-btn:hover { background: var(--hover); color: var(--text-2); }
 
     .board {
       display: flex;
@@ -70,14 +176,18 @@
 
     .column {
       flex: 1;
-      background: #eeece6;
+      background: var(--col-bg);
       border-radius: 12px;
-      border: 0.5px solid rgba(0,0,0,0.1);
+      border: 0.5px solid var(--border);
       padding: 12px;
       min-height: 400px;
     }
 
-    .column.drag-over { outline: 1.5px dashed rgba(0,0,0,0.2); }
+    .column-todo       { background: var(--col-todo-bg);  border-color: var(--col-todo-border); }
+    .column-inprogress { background: var(--col-ip-bg);    border-color: var(--col-ip-border); }
+    .column-done       { background: var(--col-done-bg);  border-color: var(--col-done-border); }
+
+    .column.drag-over { outline: 1.5px dashed var(--drag-outline); }
 
     .column-header {
       display: flex;
@@ -85,7 +195,7 @@
       justify-content: space-between;
       margin-bottom: 12px;
       padding-bottom: 10px;
-      border-bottom: 0.5px solid rgba(0,0,0,0.1);
+      border-bottom: 0.5px solid var(--border);
     }
 
     .column-title {
@@ -93,14 +203,14 @@
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #5f5e5a;
+      color: var(--text-2);
     }
 
     .column-count {
       font-size: 12px;
-      color: #888780;
-      background: #fff;
-      border: 0.5px solid rgba(0,0,0,0.1);
+      color: var(--text-3);
+      background: var(--surface);
+      border: 0.5px solid var(--border);
       border-radius: 20px;
       padding: 1px 8px;
     }
@@ -112,8 +222,8 @@
     }
 
     .card {
-      background: #fff;
-      border: 0.5px solid rgba(0,0,0,0.1);
+      background: var(--surface);
+      border: 0.5px solid var(--border);
       border-radius: 8px;
       padding: 10px 12px;
       cursor: grab;
@@ -128,14 +238,14 @@
     .card-title {
       font-size: 14px;
       font-weight: 500;
-      color: #1a1a18;
+      color: var(--text);
       line-height: 1.4;
       word-break: break-word;
     }
 
     .card-body {
       font-size: 12px;
-      color: #888780;
+      color: var(--text-3);
       line-height: 1.4;
       margin-top: 4px;
       word-break: break-word;
@@ -185,7 +295,7 @@
       background: none;
       border: none;
       cursor: pointer;
-      color: #bbb9b4;
+      color: var(--text-4);
       font-size: 13px;
       line-height: 1;
       display: none;
@@ -201,11 +311,11 @@
     .card:hover .card-delete,
     .card:hover .card-edit { display: flex; }
     .card-delete:hover { color: #c0392b; }
-    .card-edit:hover   { color: #1a1a18; }
+    .card-edit:hover   { color: var(--text); }
 
     .card-edit-form {
-      background: #fff;
-      border: 0.5px solid rgba(0,0,0,0.15);
+      background: var(--surface);
+      border: 0.5px solid var(--border-2);
       border-radius: 8px;
       padding: 10px 12px;
       display: flex;
@@ -217,18 +327,18 @@
     .card-edit-form textarea {
       width: 100%;
       resize: none;
-      border: 0.5px solid rgba(0,0,0,0.2);
+      border: 0.5px solid var(--border-3);
       border-radius: 8px;
       padding: 7px 9px;
       font-size: 13px;
       font-family: inherit;
-      color: #1a1a18;
-      background: #fff;
+      color: var(--text);
+      background: var(--surface);
       outline: none;
     }
 
     .card-edit-form input[type="text"]:focus,
-    .card-edit-form textarea:focus { border-color: rgba(0,0,0,0.35); }
+    .card-edit-form textarea:focus { border-color: var(--border-focus); }
 
     .add-card-btn {
       width: 100%;
@@ -236,16 +346,16 @@
       padding: 7px;
       font-size: 13px;
       font-family: inherit;
-      color: #888780;
+      color: var(--text-3);
       background: transparent;
-      border: 0.5px dashed rgba(0,0,0,0.15);
+      border: 0.5px dashed var(--border-dash);
       border-radius: 8px;
       cursor: pointer;
       text-align: left;
       transition: color 0.1s, background 0.1s;
     }
 
-    .add-card-btn:hover { color: #5f5e5a; background: rgba(0,0,0,0.03); }
+    .add-card-btn:hover { color: var(--text-2); background: var(--hover-sm); }
 
     .add-card-form {
       display: none;
@@ -260,18 +370,18 @@
     .add-card-form textarea {
       width: 100%;
       resize: none;
-      border: 0.5px solid rgba(0,0,0,0.2);
+      border: 0.5px solid var(--border-3);
       border-radius: 8px;
       padding: 7px 9px;
       font-size: 13px;
       font-family: inherit;
-      color: #1a1a18;
-      background: #fff;
+      color: var(--text);
+      background: var(--surface);
       outline: none;
     }
 
     .add-card-form input[type="text"]:focus,
-    .add-card-form textarea:focus { border-color: rgba(0,0,0,0.35); }
+    .add-card-form textarea:focus { border-color: var(--border-focus); }
 
     .label-picker { position: relative; }
 
@@ -283,14 +393,14 @@
       font-size: 12px;
       font-family: inherit;
       border-radius: 20px;
-      border: 0.5px dashed rgba(0,0,0,0.2);
+      border: 0.5px dashed var(--border-3);
       background: none;
       cursor: pointer;
-      color: #888780;
+      color: var(--text-3);
       transition: background 0.1s, color 0.1s;
     }
 
-    .label-trigger:hover { background: rgba(0,0,0,0.04); color: #5f5e5a; }
+    .label-trigger:hover { background: var(--hover); color: var(--text-2); }
 
     button.card-tag { cursor: pointer; }
 
@@ -299,10 +409,10 @@
       top: calc(100% + 5px);
       left: 0;
       z-index: 100;
-      background: #fff;
-      border: 0.5px solid rgba(0,0,0,0.12);
+      background: var(--surface);
+      border: 0.5px solid var(--border-2);
       border-radius: 10px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 16px var(--shadow);
       padding: 6px;
       min-width: 190px;
       display: none;
@@ -325,21 +435,21 @@
       cursor: pointer;
       text-align: left;
       width: 100%;
-      color: #1a1a18;
+      color: var(--text);
       transition: background 0.1s;
     }
 
-    .label-option:hover { background: rgba(0,0,0,0.04); }
-    .label-option.selected { background: rgba(0,0,0,0.06); font-weight: 500; }
+    .label-option:hover { background: var(--hover); }
+    .label-option.selected { background: var(--hover-2); font-weight: 500; }
 
     .label-option-swatch {
       width: 11px; height: 11px;
       border-radius: 50%;
       flex-shrink: 0;
-      border: 0.5px solid rgba(0,0,0,0.1);
+      border: 0.5px solid var(--border);
     }
 
-    .label-sep { height: 0.5px; background: rgba(0,0,0,0.08); margin: 4px 2px; }
+    .label-sep { height: 0.5px; background: var(--border-sep); margin: 4px 2px; }
 
     .label-new-section {
       padding: 4px 4px 2px;
@@ -350,18 +460,18 @@
 
     .label-new-section input {
       width: 100%;
-      border: 0.5px solid rgba(0,0,0,0.2);
+      border: 0.5px solid var(--border-3);
       border-radius: 6px;
       padding: 5px 8px;
       font-size: 12px;
       font-family: inherit;
-      color: #1a1a18;
-      background: #fafafa;
+      color: var(--text);
+      background: var(--surface-2);
       outline: none;
     }
 
-    .label-new-section input:focus { border-color: rgba(0,0,0,0.35); background: #fff; }
-    .label-new-section input::placeholder { color: #b8b7b2; }
+    .label-new-section input:focus { border-color: var(--border-focus); background: var(--surface); }
+    .label-new-section input::placeholder { color: var(--placeholder); }
 
     .label-color-row { display: flex; gap: 6px; }
 
@@ -377,14 +487,14 @@
     }
 
     .label-color-dot:hover { transform: scale(1.15); }
-    .label-color-dot.selected { border-color: rgba(0,0,0,0.4); box-shadow: inset 0 0 0 2px #fff; }
+    .label-color-dot.selected { border-color: var(--dot-selected); box-shadow: inset 0 0 0 2px var(--dot-inner); }
 
     .form-actions { display: flex; gap: 6px; }
 
     .btn-primary {
       padding: 5px 12px;
-      background: #1a1a18;
-      color: #f5f4f0;
+      background: var(--btn-bg);
+      color: var(--btn-text);
       border: none;
       border-radius: 6px;
       font-size: 12px;
@@ -400,7 +510,7 @@
       padding: 5px 8px;
       background: none;
       border: none;
-      color: #888780;
+      color: var(--text-3);
       font-size: 12px;
       cursor: pointer;
       border-radius: 6px;
@@ -408,7 +518,7 @@
       transition: color 0.1s;
     }
 
-    .btn-cancel:hover { color: #5f5e5a; }
+    .btn-cancel:hover { color: var(--text-2); }
   </style>
 </head>
 <body>
@@ -418,18 +528,17 @@
   <div id="status">
     <div id="status-dot" class="connecting"></div>
     <span id="status-text">Connecting…</span>
+    <button id="theme-btn" title="Toggle dark mode">☾</button>
     <button id="refresh-btn" title="Reload from server">↻ Sync</button>
   </div>
 </header>
 
 <div class="board" id="board"></div>
 
-<script src="kanban-secrets.js"></script>
 <script>
 // ─── Config ───────────────────────────────────────────────────────────────────
-// MASTER_KEY is loaded from kanban-secrets.js (gitignored)
-const API         = 'https://api.jsonbin.io/v3';
-const POLL_MS     = 15_000; // auto-sync every 15 s when idle
+const API     = 'https://api.jsonbin.io/v3';
+const POLL_MS = 15_000; // auto-sync every 15 s when idle
 
 const COLUMNS = [
   { id: 'todo',       label: 'To Do'       },
@@ -445,10 +554,33 @@ const COLORS = [
   { cls: 'tag-purple', dot: '#9a7ad4' },
 ];
 
+// ─── Config from URL / localStorage ──────────────────────────────────────────
+// URL format:  #MASTERKEY/BINID   (hash never sent to server — key stays private)
+// Share the full URL to give collaborators access.
+let MASTER_KEY = null;
+let binId      = null;
+
+(function parseConfig() {
+  const raw = location.hash.slice(1) || localStorage.getItem('kanban-config')
+                                     || localStorage.getItem('kanban-bin-id'); // legacy fallback
+  if (!raw) return;
+  const slash = raw.lastIndexOf('/');
+  if (slash !== -1) {
+    MASTER_KEY = raw.slice(0, slash) || null;
+    binId      = raw.slice(slash + 1) || null;
+  } else {
+    binId = raw; // legacy: bin ID only (no key in URL)
+  }
+})();
+
+function saveConfig() {
+  const cfg = MASTER_KEY ? `${MASTER_KEY}/${binId || ''}` : (binId || '');
+  history.replaceState(null, '', '#' + cfg);
+  localStorage.setItem('kanban-config', cfg);
+}
+
 // ─── State ────────────────────────────────────────────────────────────────────
-let state   = { todo: [], inprogress: [], done: [] };
-// Resolve bin ID: URL hash takes priority (for sharing), then localStorage
-let binId   = location.hash.slice(1) || localStorage.getItem('kanban-bin-id');
+let state = { todo: [], inprogress: [], done: [] };
 let saveTimer  = null;
 let pollTimer  = null;
 let dragSrc    = null;   // { id, col }
@@ -537,7 +669,7 @@ function renderBoard() {
   for (const col of COLUMNS) {
     const cards = state[col.id] || [];
     const el = document.createElement('div');
-    el.className = 'column';
+    el.className = `column column-${col.id}`;
 
     el.innerHTML = `
       <div class="column-header">
@@ -910,8 +1042,41 @@ function esc(s) {
           .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// ─── Theme toggle ─────────────────────────────────────────────────────────────
+(function initTheme() {
+  const btn = document.getElementById('theme-btn');
+
+  // Returns true if the page is currently rendering dark (explicit or system).
+  function isDark() {
+    const t = document.documentElement.dataset.theme;
+    if (t === 'dark')  return true;
+    if (t === 'light') return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  function applyTheme(dark) {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    localStorage.setItem('kanban-theme', dark ? 'dark' : 'light');
+    btn.textContent = dark ? '☀' : '☾';
+    btn.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
+  }
+
+  // Restore stored preference; fall back to system.
+  const stored = localStorage.getItem('kanban-theme');
+  if (stored) document.documentElement.dataset.theme = stored;
+  btn.textContent = isDark() ? '☀' : '☾';
+  btn.title = isDark() ? 'Switch to light mode' : 'Switch to dark mode';
+
+  btn.addEventListener('click', () => applyTheme(!isDark()));
+})();
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
+  if (!MASTER_KEY) {
+    setStatus('error', 'Add key to URL: #MASTERKEY/BINID');
+    return;
+  }
+
   setStatus('connecting', 'Connecting…');
   renderBoard();
 
@@ -920,19 +1085,15 @@ async function init() {
       binId = await createBin();
     }
 
-    // Write bin ID into URL hash and localStorage so every session reuses it.
-    // Share the URL (with hash) to give Sofia access to the same bin.
-    history.replaceState(null, '', '#' + binId);
-    localStorage.setItem('kanban-bin-id', binId);
+    // Persist MASTERKEY/BINID in URL hash and localStorage for sharing.
+    saveConfig();
 
     try {
       state = await fetchState();
     } catch (e) {
       if (e.notFound) {
-        localStorage.removeItem('kanban-bin-id');
         binId = await createBin();
-        history.replaceState(null, '', '#' + binId);
-        localStorage.setItem('kanban-bin-id', binId);
+        saveConfig();
         state = await fetchState();
       } else {
         throw e;
@@ -961,6 +1122,11 @@ document.getElementById('refresh-btn').addEventListener('click', async () => {
 });
 
 init();
+
+// ─── Service worker ───────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
 </script>
 </body>
 </html>
