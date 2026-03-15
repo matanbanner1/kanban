@@ -1,4 +1,4 @@
-const CACHE = 'kanban-v1';
+const CACHE = 'kanban-v2';
 const SHELL = ['./kanban.html', './icon-192.png', './icon-512.png', './icon.svg'];
 
 self.addEventListener('install', e => {
