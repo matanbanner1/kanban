@@ -790,7 +790,7 @@ function buildCard(card, colId) {
   const displayBody  = card.body  || '';
   div.innerHTML = `
     <span class="card-title">${esc(displayTitle)}</span>
-    ${displayBody ? `<p class="card-body">${esc(displayBody)}</p>` : ''}
+    ${displayBody ? `<p class="card-body">${esc(displayBody).replace(/\n/g, '<br>')}</p>` : ''}
     ${card.tag ? `<span class="card-tag ${card.tagClass}">${esc(card.tag)}<button class="card-tag-remove" title="Remove label">×</button></span>` : ''}
     <button class="card-delete" title="Delete">×</button>
   `;
