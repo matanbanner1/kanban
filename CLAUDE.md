@@ -7,20 +7,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 No build step. Open directly in a browser:
 
 ```
-kanban/kanban.html#MASTERKEY/BINID
+kanban.html#MASTERKEY/BINID
 ```
 
-The URL hash supplies credentials — never a query string. `kanban/kanban-secrets.js` (gitignored) can hold a `MASTER_KEY` constant for local convenience but is not loaded by the app; credentials must always come from the URL hash.
+The URL hash supplies credentials — never a query string. `kanban-secrets.js` (gitignored) can hold a `MASTER_KEY` constant for local convenience but is not loaded by the app; credentials must always come from the URL hash.
 
 ## Deployment
 
-Push to `main`. GitHub Actions (`.github/workflows/deploy.yml`) publishes the contents of `kanban/` to the `gh-pages` branch, which GitHub Pages serves from the repo root.
+Push to `main`. GitHub Actions (`.github/workflows/deploy.yml`) publishes the repo root to the `gh-pages` branch, which GitHub Pages serves.
 
 Live URL: `https://matanbanner1.github.io/kanban/kanban.html`
 
 ## Architecture
 
-Everything lives in `kanban/kanban.html` — HTML, CSS, and JS in one file (~1200 lines). There is no framework, bundler, or external dependency.
+Everything lives in `kanban.html` — HTML, CSS, and JS in one file (~1200 lines). There is no framework, bundler, or external dependency.
 
 **Backend:** JSONBin.io REST API (`https://api.jsonbin.io/v3`). The entire board state is a single JSON blob stored in one bin.
 
@@ -44,4 +44,4 @@ Everything lives in `kanban/kanban.html` — HTML, CSS, and JS in one file (~120
 
 **Theme:** Two parallel dark-mode paths — `@media (prefers-color-scheme: dark)` for the default, and `html[data-theme="dark"]` for the explicit toggle. The toggle stores preference in `localStorage('kanban-theme')`.
 
-**Service worker** (`kanban/sw.js`): cache-first for the app shell (`CACHE = 'kanban-v2'`), network-only for `jsonbin.io` requests. Bump the cache version string when changing any cached file to force clients to update.
+**Service worker** (`sw.js`): cache-first for the app shell (`CACHE = 'kanban-v2'`), network-only for `jsonbin.io` requests. Bump the cache version string when changing any cached file to force clients to update.
