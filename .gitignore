@@ -1,1 +1,4 @@
+# Local credentials file (use URL hash for auth instead)
 kanban-secrets.js
+
+.DS_Store
