@@ -27,6 +27,7 @@
       --border-sep:    rgba(0,0,0,0.08);
       --border-dash:   rgba(0,0,0,0.15);
       --hover:         rgba(0,0,0,0.04);
+      --hover-sm:      rgba(0,0,0,0.03);
       --hover-2:       rgba(0,0,0,0.06);
       --shadow:        rgba(0,0,0,0.1);
       --btn-bg:        #1a1a18;
@@ -51,6 +52,7 @@
         --border-sep:    rgba(255,255,255,0.08);
         --border-dash:   rgba(255,255,255,0.15);
         --hover:         rgba(255,255,255,0.05);
+        --hover-sm:      rgba(255,255,255,0.04);
         --hover-2:       rgba(255,255,255,0.08);
         --shadow:        rgba(0,0,0,0.5);
         --btn-bg:        #e8e8e4;
@@ -75,6 +77,7 @@
       --border-sep:    rgba(255,255,255,0.08);
       --border-dash:   rgba(255,255,255,0.15);
       --hover:         rgba(255,255,255,0.05);
+      --hover-sm:      rgba(255,255,255,0.04);
       --hover-2:       rgba(255,255,255,0.08);
       --shadow:        rgba(0,0,0,0.5);
       --btn-bg:        #e8e8e4;
@@ -422,6 +425,7 @@ function scheduleSave() {
   clearTimeout(saveTimer);
   clearTimeout(pollTimer);
   saveTimer = setTimeout(async () => {
+    saveTimer = null;
     isSaving = true;
     try {
       await pushState();
