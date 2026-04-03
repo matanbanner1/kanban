@@ -1,7 +1,5 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Local Development
 
 No build step. Open directly in a browser:
@@ -45,3 +43,17 @@ Everything lives in `kanban.html` — HTML, CSS, and JS in one file (~1200 lines
 **Theme:** Two parallel dark-mode paths — `@media (prefers-color-scheme: dark)` for the default, and `html[data-theme="dark"]` for the explicit toggle. The toggle stores preference in `localStorage('kanban-theme')`.
 
 **Service worker** (`sw.js`): cache-first for the app shell (`CACHE = 'kanban-v2'`), network-only for `jsonbin.io` requests. Bump the cache version string when changing any cached file to force clients to update.
+
+## Testing
+
+Open test files directly in a browser — no test runner needed:
+
+```
+tests/   ← open any .test.html file in a browser
+```
+
+## Companion App
+
+A separate **todos app** lives at `/Users/mbanner/apps/todos/` and shares the same JSONBin bin.
+The bin may contain a `todos` key alongside the kanban keys — don't overwrite it.
+Full bin state shape: `{ todo, inprogress, done, todos: { today, thisWeek, someday } }`
