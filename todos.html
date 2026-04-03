@@ -461,9 +461,112 @@ function esc(s) {
                   .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// ─── Render (placeholder — replaced in Task 4) ───────────────────────────────
+// ─── Render ───────────────────────────────────────────────────────────────────
 function renderBoard() {
-  document.getElementById('board').textContent = 'Loading…';
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  for (const sec of SECTIONS) {
+    const items = (state.todos && state.todos[sec.id]) || [];
+    const active = items.filter(i => !i.done).length;
+
+    const el = document.createElement('div');
+    el.className = `section section-${sec.id.toLowerCase()}`;
+    el.dataset.section = sec.id;
+
+    el.innerHTML = `
+      <div class="section-header">
+        <span class="section-title">${sec.label}</span>
+        <span class="section-count">${active || ''}</span>
+      </div>
+      <div class="todo-list"></div>
+      <div class="todo-add-row">
+        <input class="todo-add-input" placeholder="+ add item" type="text" autocomplete="off" data-section="${sec.id}">
+      </div>
+    `;
+
+    const list = el.querySelector('.todo-list');
+    for (const item of items) list.appendChild(buildItem(item, sec.id));
+
+    board.appendChild(el);
+    wireAddInput(el.querySelector('.todo-add-input'), sec.id);
+  }
+}
+
+function buildItem(item, sectionId) {
+  const div = document.createElement('div');
+  div.className = 'todo-item';
+  div.dataset.id = item.id;
+
+  div.innerHTML = `
+    <div class="todo-checkbox${item.done ? ' checked' : ''}"></div>
+    <span class="todo-title${item.done ? ' done' : ''}">${esc(item.title)}</span>
+    <div class="todo-actions">
+      <div class="section-picker">
+        <button class="todo-action-btn btn-move" title="Move to section">⇄</button>
+        <div class="section-picker-menu">
+          ${SECTIONS.map(s => `
+            <button class="picker-option" data-target="${s.id}"
+              ${s.id === sectionId ? 'disabled' : ''}>${s.label}</button>
+          `).join('')}
+        </div>
+      </div>
+      <button class="todo-action-btn btn-promote" title="Send to kanban board">→ board</button>
+    </div>
+  `;
+
+  // Checkbox toggle
+  div.querySelector('.todo-checkbox').addEventListener('click', () => {
+    state = toggleDone(state, sectionId, item.id);
+    renderBoard();
+    scheduleSave();
+  });
+
+  // Section picker toggle
+  const moveBtn  = div.querySelector('.btn-move');
+  const menu     = div.querySelector('.section-picker-menu');
+  moveBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    menu.classList.toggle('open');
+    if (menu.classList.contains('open')) {
+      const close = () => { menu.classList.remove('open'); document.removeEventListener('click', close); };
+      setTimeout(() => document.addEventListener('click', close), 0);
+    }
+  });
+
+  div.querySelectorAll('.picker-option:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      state = moveItem(state, sectionId, btn.dataset.target, item.id);
+      renderBoard();
+      scheduleSave();
+    });
+  });
+
+  // Promote to kanban
+  div.querySelector('.btn-promote').addEventListener('click', () => {
+    state = promoteToKanban(state, sectionId, item.id);
+    renderBoard();
+    scheduleSave();
+  });
+
+  return div;
+}
+
+function wireAddInput(input, sectionId) {
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const title = input.value.trim();
+      if (!title) return;
+      state.todos[sectionId].push({ id: crypto.randomUUID(), title, done: false });
+      renderBoard();
+      scheduleSave();
+    }
+    if (e.key === 'Escape') {
+      input.value = '';
+      input.blur();
+    }
+  });
 }
 
 // ─── Clear done ───────────────────────────────────────────────────────────────
