@@ -17,7 +17,7 @@ function clearDone(state) {
   const sections = ['today', 'thisWeek', 'someday'];
   const cleaned = {};
   for (const s of sections) cleaned[s] = (state.todos[s] || []).filter(i => !i.done);
-  return { ...state, todos: cleaned };
+  return { ...state, todos: { ...state.todos, ...cleaned } };
 }
 
 function moveItem(state, fromSection, toSection, id) {
