@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Todos State Tests</title>
+  <script src="../todos-state.js"></script>
+  <style>
+    body { font-family: monospace; padding: 20px; }
+    .pass { color: green; } .fail { color: red; }
+    h2 { margin: 16px 0 8px; font-size: 14px; }
+  </style>
+</head>
+<body>
+<h1>Todos State Tests</h1>
+<div id="results"></div>
+<script>
+const out = document.getElementById('results');
+let passed = 0, failed = 0;
+
+function assert(label, actual, expected) {
+  const ok = JSON.stringify(actual) === JSON.stringify(expected);
+  const p = document.createElement('p');
+  p.className = ok ? 'pass' : 'fail';
+  p.textContent = (ok ? '✓ ' : '✗ ') + label;
+  if (!ok) p.textContent += `\n  expected: ${JSON.stringify(expected)}\n  got:      ${JSON.stringify(actual)}`;
+  out.appendChild(p);
+  ok ? passed++ : failed++;
+}
+
+function section(label) {
+  const h = document.createElement('h2');
+  h.textContent = label;
+  out.appendChild(h);
+}
+
+const base = () => ({
+  todo: [], inprogress: [], done: [],
+  todos: {
+    today:    [{ id: 'a1', title: 'Buy milk', done: false }],
+    thisWeek: [{ id: 'b1', title: 'Write tests', done: false }],
+    someday:  [],
+  }
+});
+
+// ── toggleDone ────────────────────────────────────────────────────
+section('toggleDone');
+{
+  const s = toggleDone(base(), 'today', 'a1');
+  assert('marks item done', s.todos.today[0].done, true);
+}
+{
+  const s1 = toggleDone(base(), 'today', 'a1');
+  const s2 = toggleDone(s1, 'today', 'a1');
+  assert('toggles back to undone', s2.todos.today[0].done, false);
+}
+{
+  const s = toggleDone(base(), 'today', 'a1');
+  assert('does not mutate other sections', s.todos.thisWeek[0].done, false);
+}
+{
+  const s = toggleDone(base(), 'today', 'MISSING');
+  assert('no-ops on unknown id', s.todos.today[0].done, false);
+}
+
+// ── clearDone ─────────────────────────────────────────────────────
+section('clearDone');
+{
+  let s = toggleDone(base(), 'today', 'a1');
+  s = clearDone(s);
+  assert('removes done items from today', s.todos.today, []);
+}
+{
+  const s = clearDone(base());
+  assert('no-ops when nothing is done', s.todos.today.length, 1);
+}
+{
+  let s = base();
+  s.todos.someday = [{ id: 'c1', title: 'X', done: true }];
+  s = clearDone(s);
+  assert('clears across all sections', s.todos.someday, []);
+}
+{
+  let s = toggleDone(base(), 'today', 'a1');
+  s = clearDone(s);
+  assert('preserves kanban state', s.todo, []);
+}
+
+// ── moveItem ──────────────────────────────────────────────────────
+section('moveItem');
+{
+  const s = moveItem(base(), 'today', 'thisWeek', 'a1');
+  assert('removes from source section', s.todos.today, []);
+  assert('appends to target section', s.todos.thisWeek.length, 2);
+  assert('moved item has correct title', s.todos.thisWeek[1].title, 'Buy milk');
+}
+{
+  const s = moveItem(base(), 'today', 'today', 'a1');
+  assert('no-ops when source equals target', s.todos.today.length, 1);
+}
+{
+  const s = moveItem(base(), 'today', 'someday', 'MISSING');
+  assert('no-ops on unknown id', s.todos.someday, []);
+}
+
+// ── promoteToKanban ───────────────────────────────────────────────
+section('promoteToKanban');
+{
+  const s = promoteToKanban(base(), 'today', 'a1');
+  assert('removes item from todos section', s.todos.today, []);
+  assert('adds one card to kanban todo column', s.todo.length, 1);
+  assert('promoted card has correct title', s.todo[0].title, 'Buy milk');
+  assert('promoted card has empty body', s.todo[0].body, '');
+  assert('promoted card has empty tag', s.todo[0].tag, '');
+  assert('promoted card has empty tagClass', s.todo[0].tagClass, '');
+}
+{
+  const s = promoteToKanban(base(), 'today', 'MISSING');
+  assert('no-ops on unknown id', s.todo.length, 0);
+}
+
+// ── addItem ────────────────────────────────────────────────────────
+section('addItem');
+{
+  const s = addItem(base(), 'today', 'New task');
+  assert('appends item to section', s.todos.today.length, 2);
+  assert('new item has correct title', s.todos.today[1].title, 'New task');
+  assert('new item starts undone', s.todos.today[1].done, false);
+}
+{
+  const s = addItem(base(), 'today', 'New task');
+  assert('does not mutate other sections', s.todos.thisWeek.length, 1);
+}
+
+// ── Summary ───────────────────────────────────────────────────────
+const summary = document.createElement('p');
+summary.style.marginTop = '16px';
+summary.style.fontWeight = 'bold';
+summary.textContent = `${passed} passed, ${failed} failed`;
+summary.style.color = failed ? 'red' : 'green';
+out.appendChild(summary);
+</script>
+</body>
+</html>
