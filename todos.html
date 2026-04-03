@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Todos</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1a1a18" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ─── Theme variables (light) ─────────────────────────────────────────── */
+    :root {
+      --bg:            #f5f4f0;
+      --text:          #1a1a18;
+      --text-2:        #5f5e5a;
+      --text-3:        #888780;
+      --text-4:        #bbb9b4;
+      --surface:       #ffffff;
+      --surface-2:     #fafafa;
+      --col-bg:        #eeece6;
+      --border:        rgba(0,0,0,0.1);
+      --border-2:      rgba(0,0,0,0.15);
+      --border-3:      rgba(0,0,0,0.2);
+      --border-focus:  rgba(0,0,0,0.35);
+      --border-sep:    rgba(0,0,0,0.08);
+      --border-dash:   rgba(0,0,0,0.15);
+      --hover:         rgba(0,0,0,0.04);
+      --hover-2:       rgba(0,0,0,0.06);
+      --shadow:        rgba(0,0,0,0.1);
+      --btn-bg:        #1a1a18;
+      --btn-text:      #f5f4f0;
+      --placeholder:   #b8b7b2;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg:            #16161a;
+        --text:          #e8e8e4;
+        --text-2:        #b0afa8;
+        --text-3:        #9e9d96;
+        --text-4:        #555550;
+        --surface:       #3e3e3c;
+        --surface-2:     #323230;
+        --col-bg:        #1e1e1c;
+        --border:        rgba(255,255,255,0.14);
+        --border-2:      rgba(255,255,255,0.18);
+        --border-3:      rgba(255,255,255,0.22);
+        --border-focus:  rgba(255,255,255,0.45);
+        --border-sep:    rgba(255,255,255,0.08);
+        --border-dash:   rgba(255,255,255,0.15);
+        --hover:         rgba(255,255,255,0.05);
+        --hover-2:       rgba(255,255,255,0.08);
+        --shadow:        rgba(0,0,0,0.5);
+        --btn-bg:        #e8e8e4;
+        --btn-text:      #1a1a18;
+        --placeholder:   #555550;
+      }
+    }
+
+    html[data-theme="dark"] {
+      --bg:            #16161a;
+      --text:          #e8e8e4;
+      --text-2:        #b0afa8;
+      --text-3:        #9e9d96;
+      --text-4:        #555550;
+      --surface:       #323230;
+      --surface-2:     #272725;
+      --col-bg:        #1e1e1c;
+      --border:        rgba(255,255,255,0.14);
+      --border-2:      rgba(255,255,255,0.18);
+      --border-3:      rgba(255,255,255,0.22);
+      --border-focus:  rgba(255,255,255,0.45);
+      --border-sep:    rgba(255,255,255,0.08);
+      --border-dash:   rgba(255,255,255,0.15);
+      --hover:         rgba(255,255,255,0.05);
+      --hover-2:       rgba(255,255,255,0.08);
+      --shadow:        rgba(0,0,0,0.5);
+      --btn-bg:        #e8e8e4;
+      --btn-text:      #1a1a18;
+      --placeholder:   #555550;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    h1 { font-size: 18px; font-weight: 500; color: var(--text); }
+
+    #status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-3);
+    }
+
+    #status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #c8c7c2;
+      transition: background 0.3s;
+      flex-shrink: 0;
+    }
+
+    #status-dot.connecting { background: #d4a017; }
+    #status-dot.saving     { background: #5b8dd9; }
+    #status-dot.saved      { background: #5fa85a; }
+    #status-dot.error      { background: #c0392b; }
+
+    #refresh-btn, #theme-btn, #clear-done-btn {
+      background: none;
+      border: 0.5px solid var(--border-2);
+      cursor: pointer;
+      color: var(--text-3);
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: inherit;
+      transition: background 0.1s, color 0.1s;
+    }
+    #refresh-btn:hover, #theme-btn:hover, #clear-done-btn:hover {
+      background: var(--hover); color: var(--text-2);
+    }
+
+    #nav-link {
+      font-size: 11px;
+      color: var(--text-3);
+      text-decoration: none;
+      padding: 2px 7px;
+      border: 0.5px solid var(--border-2);
+      border-radius: 4px;
+      transition: background 0.1s, color 0.1s;
+    }
+    #nav-link:hover { background: var(--hover); color: var(--text-2); }
+
+    /* ─── Sections layout ─────────────────────────────────────────────────── */
+    .sections {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    @media (max-width: 600px) {
+      .sections { flex-direction: column; }
+    }
+
+    .section {
+      flex: 1;
+      background: var(--col-bg);
+      border-radius: 12px;
+      border: 0.5px solid var(--border);
+      border-top: 3px solid transparent;
+      padding: 12px;
+      min-height: 200px;
+    }
+
+    .section-today    { border-top-color: rgba(180,60,60,0.5);  }
+    .section-thisweek { border-top-color: rgba(160,130,0,0.5);  }
+    .section-someday  { border-top-color: rgba(40,130,60,0.5);  }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 0.5px solid var(--border-sep);
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-3);
+    }
+
+    .section-count {
+      font-size: 11px;
+      color: var(--text-4);
+    }
+
+    /* ─── Todo items ──────────────────────────────────────────────────────── */
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 0.5px solid var(--border-sep);
+      position: relative;
+    }
+
+    .todo-checkbox {
+      width: 14px; height: 14px;
+      border: 1.5px solid var(--border-3);
+      border-radius: 3px;
+      flex-shrink: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.1s, border-color 0.1s;
+      user-select: none;
+    }
+
+    .todo-checkbox.checked {
+      background: var(--text-3);
+      border-color: var(--text-3);
+    }
+
+    .todo-checkbox.checked::after {
+      content: '✓';
+      font-size: 9px;
+      color: var(--surface);
+      line-height: 1;
+    }
+
+    .todo-title {
+      flex: 1;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    .todo-title.done {
+      text-decoration: line-through;
+      color: var(--text-4);
+    }
+
+    .todo-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+
+    .todo-item:hover .todo-actions { opacity: 1; }
+
+    .todo-action-btn {
+      background: none;
+      border: 0.5px solid var(--border-2);
+      border-radius: 4px;
+      font-size: 10px;
+      color: var(--text-3);
+      cursor: pointer;
+      padding: 1px 5px;
+      font-family: inherit;
+      transition: background 0.1s, color 0.1s;
+      white-space: nowrap;
+    }
+    .todo-action-btn:hover { background: var(--hover-2); color: var(--text); }
+
+    /* ─── Section picker dropdown ─────────────────────────────────────────── */
+    .section-picker { position: relative; }
+
+    .section-picker-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 4px);
+      background: var(--surface);
+      border: 0.5px solid var(--border-2);
+      border-radius: 6px;
+      box-shadow: 0 4px 12px var(--shadow);
+      z-index: 10;
+      min-width: 110px;
+      padding: 4px;
+    }
+    .section-picker-menu.open { display: block; }
+
+    .picker-option {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      padding: 5px 8px;
+      font-size: 12px;
+      color: var(--text-2);
+      cursor: pointer;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+    .picker-option:hover { background: var(--hover); color: var(--text); }
+    .picker-option[disabled] { color: var(--text-4); cursor: default; }
+    .picker-option[disabled]:hover { background: none; }
+
+    /* ─── Inline add-item row ─────────────────────────────────────────────── */
+    .todo-add-row {
+      display: flex;
+      align-items: center;
+      padding: 7px 0 2px 0;
+    }
+
+    .todo-add-input {
+      flex: 1;
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--border-dash);
+      padding: 3px 0;
+      font-size: 12px;
+      font-family: inherit;
+      color: var(--text);
+      outline: none;
+    }
+    .todo-add-input::placeholder { color: var(--placeholder); }
+    .todo-add-input:focus { border-bottom-color: var(--border-focus); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Todos</h1>
+  <div id="status">
+    <div id="status-dot" class="connecting"></div>
+    <span id="status-text">Connecting…</span>
+    <button id="clear-done-btn">Clear done</button>
+    <button id="theme-btn" title="Toggle dark mode">☾</button>
+    <button id="refresh-btn" title="Reload from server">↻ Sync</button>
+    <a id="nav-link" href="kanban.html">→ Kanban</a>
+  </div>
+</header>
+
+<div class="sections" id="board"></div>
+
+<script src="todos-state.js"></script>
+<script>
+// ─── Config ───────────────────────────────────────────────────────────────────
+const API     = 'https://api.jsonbin.io/v3';
+const POLL_MS = 15_000;
+
+const SECTIONS = [
+  { id: 'today',    label: 'Today'     },
+  { id: 'thisWeek', label: 'This Week' },
+  { id: 'someday',  label: 'Someday'   },
+];
+
+// ─── Config from URL / localStorage ──────────────────────────────────────────
+let MASTER_KEY = null;
+let binId      = null;
+
+(function parseConfig() {
+  const raw = location.hash.slice(1) || localStorage.getItem('kanban-config');
+  if (!raw) return;
+  const slash = raw.lastIndexOf('/');
+  if (slash !== -1) {
+    MASTER_KEY = raw.slice(0, slash) || null;
+    binId      = raw.slice(slash + 1) || null;
+  } else {
+    binId = raw;
+  }
+})();
+
+function saveConfig() {
+  const cfg = MASTER_KEY ? `${MASTER_KEY}/${binId || ''}` : (binId || '');
+  history.replaceState(null, '', '#' + cfg);
+  localStorage.setItem('kanban-config', cfg);
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let state     = { todo: [], inprogress: [], done: [], todos: { today: [], thisWeek: [], someday: [] } };
+let saveTimer = null;
+let pollTimer = null;
+let isSaving  = false;
+
+// ─── Status ───────────────────────────────────────────────────────────────────
+function setStatus(kind, msg) {
+  document.getElementById('status-dot').className    = kind;
+  document.getElementById('status-text').textContent = msg;
+}
+
+// ─── JSONBin API ──────────────────────────────────────────────────────────────
+const headers = () => ({ 'X-Master-Key': MASTER_KEY });
+
+async function createBin() {
+  const res = await fetch(`${API}/b`, {
+    method: 'POST',
+    headers: { ...headers(), 'Content-Type': 'application/json', 'X-Bin-Name': 'kanban-shared', 'X-Bin-Private': 'false' },
+    body: JSON.stringify({ todo: [], inprogress: [], done: [], todos: { today: [], thisWeek: [], someday: [] } }),
+  });
+  if (!res.ok) throw new Error(`Create bin failed: ${res.status}`);
+  const { metadata } = await res.json();
+  return metadata.id;
+}
+
+async function fetchState() {
+  const res = await fetch(`${API}/b/${binId}/latest`, { headers: headers() });
+  if (res.status === 404) throw Object.assign(new Error('Bin not found'), { notFound: true });
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+  const { record } = await res.json();
+  // Migrate: bin created by kanban.html may not have todos key
+  if (!record.todos) record.todos = { today: [], thisWeek: [], someday: [] };
+  return record;
+}
+
+async function pushState() {
+  const res = await fetch(`${API}/b/${binId}`, {
+    method: 'PUT',
+    headers: { ...headers(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(state),
+  });
+  if (!res.ok) throw new Error(`Save failed: ${res.status}`);
+}
+
+// ─── Debounced save ───────────────────────────────────────────────────────────
+function scheduleSave() {
+  setStatus('saving', 'Saving…');
+  clearTimeout(saveTimer);
+  clearTimeout(pollTimer);
+  saveTimer = setTimeout(async () => {
+    isSaving = true;
+    try {
+      await pushState();
+      setStatus('saved', 'Saved');
+    } catch (e) {
+      setStatus('error', 'Save failed');
+      console.error(e);
+    } finally {
+      isSaving = false;
+      schedulePoll();
+    }
+  }, 700);
+}
+
+// ─── Polling ──────────────────────────────────────────────────────────────────
+function schedulePoll() {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(async () => {
+    if (isSaving || saveTimer) return;
+    try {
+      const remote = await fetchState();
+      state = remote;
+      renderBoard();
+      setStatus('saved', 'Synced');
+    } catch (_) {}
+    schedulePoll();
+  }, POLL_MS);
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ─── Render (placeholder — replaced in Task 4) ───────────────────────────────
+function renderBoard() {
+  document.getElementById('board').textContent = 'Loading…';
+}
+
+// ─── Clear done ───────────────────────────────────────────────────────────────
+document.getElementById('clear-done-btn').addEventListener('click', () => {
+  state = clearDone(state);
+  renderBoard();
+  scheduleSave();
+});
+
+// ─── Theme toggle ─────────────────────────────────────────────────────────────
+(function initTheme() {
+  const btn = document.getElementById('theme-btn');
+
+  function isDark() {
+    const t = document.documentElement.dataset.theme;
+    if (t === 'dark')  return true;
+    if (t === 'light') return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  function applyTheme(dark) {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    localStorage.setItem('kanban-theme', dark ? 'dark' : 'light');
+    btn.textContent = dark ? '☀' : '☾';
+    btn.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
+  }
+
+  const stored = localStorage.getItem('kanban-theme');
+  if (stored) document.documentElement.dataset.theme = stored;
+  btn.textContent = isDark() ? '☀' : '☾';
+  btn.title = isDark() ? 'Switch to light mode' : 'Switch to dark mode';
+
+  btn.addEventListener('click', () => applyTheme(!isDark()));
+})();
+
+// ─── Nav link (preserves credentials in hash) ────────────────────────────────
+document.getElementById('nav-link').addEventListener('click', function(e) {
+  e.preventDefault();
+  location.href = 'kanban.html' + location.hash;
+});
+
+// ─── Refresh button ───────────────────────────────────────────────────────────
+document.getElementById('refresh-btn').addEventListener('click', async () => {
+  try {
+    state = await fetchState();
+    renderBoard();
+    setStatus('saved', 'Synced');
+  } catch (_) {
+    setStatus('error', 'Sync failed');
+  }
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  if (!MASTER_KEY) {
+    setStatus('error', 'Add key to URL: #MASTERKEY/BINID');
+    return;
+  }
+
+  setStatus('connecting', 'Connecting…');
+
+  try {
+    if (!binId) binId = await createBin();
+    saveConfig();
+
+    try {
+      state = await fetchState();
+    } catch (e) {
+      if (e.notFound) {
+        binId = await createBin();
+        saveConfig();
+        state = await fetchState();
+      } else {
+        throw e;
+      }
+    }
+
+    renderBoard();
+    setStatus('saved', 'Synced');
+    schedulePoll();
+  } catch (e) {
+    setStatus('error', 'Could not connect');
+    console.error(e);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
