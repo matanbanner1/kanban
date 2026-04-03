@@ -49,3 +49,13 @@ function promoteToKanban(state, section, id) {
     },
   };
 }
+
+function addItem(state, section, title) {
+  return {
+    ...state,
+    todos: {
+      ...state.todos,
+      [section]: [...(state.todos[section] || []), { id: crypto.randomUUID(), title, done: false }],
+    },
+  };
+}

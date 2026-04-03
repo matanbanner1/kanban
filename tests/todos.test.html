@@ -118,6 +118,19 @@ section('promoteToKanban');
   assert('no-ops on unknown id', s.todo.length, 0);
 }
 
+// ── addItem ────────────────────────────────────────────────────────
+section('addItem');
+{
+  const s = addItem(base(), 'today', 'New task');
+  assert('appends item to section', s.todos.today.length, 2);
+  assert('new item has correct title', s.todos.today[1].title, 'New task');
+  assert('new item starts undone', s.todos.today[1].done, false);
+}
+{
+  const s = addItem(base(), 'today', 'New task');
+  assert('does not mutate other sections', s.todos.thisWeek.length, 1);
+}
+
 // ── Summary ───────────────────────────────────────────────────────
 const summary = document.createElement('p');
 summary.style.marginTop = '16px';

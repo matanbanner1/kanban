@@ -558,7 +558,7 @@ function wireAddInput(input, sectionId) {
     if (e.key === 'Enter') {
       const title = input.value.trim();
       if (!title) return;
-      state.todos[sectionId].push({ id: crypto.randomUUID(), title, done: false });
+      state = addItem(state, sectionId, title);
       renderBoard();
       scheduleSave();
     }
