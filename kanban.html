@@ -602,6 +602,7 @@
     <span id="status-text">Connecting…</span>
     <button id="theme-btn" title="Toggle dark mode">☾</button>
     <button id="refresh-btn" title="Reload from server">↻ Sync</button>
+    <a id="todos-link" href="todos.html" style="font-size:11px;color:var(--text-3);text-decoration:none;padding:2px 7px;border:0.5px solid var(--border-2);border-radius:4px;transition:background 0.1s,color 0.1s;">→ Todos</a>
   </div>
 </header>
 
@@ -1155,6 +1156,12 @@ function esc(s) {
 
   btn.addEventListener('click', () => applyTheme(!isDark()));
 })();
+
+// ─── Todos nav link (preserves credentials in hash) ──────────────────────────
+document.getElementById('todos-link').addEventListener('click', function(e) {
+  e.preventDefault();
+  location.href = 'todos.html' + location.hash;
+});
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
