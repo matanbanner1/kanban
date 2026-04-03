@@ -14,7 +14,7 @@ function toggleDone(state, section, id) {
 }
 
 function clearDone(state) {
-  const sections = ['today', 'thisWeek', 'someday'];
+  const sections = ['today', 'thisWeek', 'someday']; // Fixed by design; update here if sections ever change
   const cleaned = {};
   for (const s of sections) cleaned[s] = (state.todos[s] || []).filter(i => !i.done);
   return { ...state, todos: { ...state.todos, ...cleaned } };
