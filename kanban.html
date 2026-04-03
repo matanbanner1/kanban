@@ -157,7 +157,7 @@
     #status-dot.saved      { background: #5fa85a; }
     #status-dot.error      { background: #c0392b; }
 
-    #refresh-btn, #theme-btn {
+    #refresh-btn, #theme-btn, #todos-link {
       background: none;
       border: 0.5px solid var(--border-2);
       cursor: pointer;
@@ -168,7 +168,7 @@
       font-family: inherit;
       transition: background 0.1s, color 0.1s;
     }
-    #refresh-btn:hover, #theme-btn:hover { background: var(--hover); color: var(--text-2); }
+    #refresh-btn:hover, #theme-btn:hover, #todos-link:hover { background: var(--hover); color: var(--text-2); }
 
     .board {
       display: flex;
@@ -602,7 +602,7 @@
     <span id="status-text">Connecting…</span>
     <button id="theme-btn" title="Toggle dark mode">☾</button>
     <button id="refresh-btn" title="Reload from server">↻ Sync</button>
-    <a id="todos-link" href="todos.html" style="font-size:11px;color:var(--text-3);text-decoration:none;padding:2px 7px;border:0.5px solid var(--border-2);border-radius:4px;transition:background 0.1s,color 0.1s;">→ Todos</a>
+    <a id="todos-link" href="todos.html">→ Todos</a>
   </div>
 </header>
 
@@ -1162,6 +1162,7 @@ document.getElementById('todos-link').addEventListener('click', function(e) {
   e.preventDefault();
   location.href = 'todos.html' + location.hash;
 });
+document.getElementById('todos-link').href = 'todos.html' + location.hash;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
