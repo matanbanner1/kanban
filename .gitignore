@@ -1,1 +1,4 @@
 .DS_Store
+.superpowers/
+.worktrees/
+kanban-secrets.js
