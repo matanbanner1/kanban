@@ -586,15 +586,15 @@ Copy the real board out of JSONBin into the new store. **Blocked while JSONBin r
 **Files:** none (data-only operation).
 
 **Interfaces:**
-- Consumes: running store from Task 3; old JSONBin credentials (old key `$2a$10$48brY21mTWonb7XNdPuk.u8t1/YE5ITXsXTCHCzoNNwqbuymQHCSO`, old bin `69b416c8b7ec241ddc665ad0`).
+- Consumes: running store from Task 3; old JSONBin credentials (old key `<OLD_JSONBIN_KEY>`, old bin `<OLD_JSONBIN_BIN_ID>`).
 - Produces: the real board data under the chosen bin id on `spark-8cae`.
 
 - [ ] **Step 1: Check whether JSONBin quota has reset**
 
 ```bash
 curl -s -w "\n[HTTP %{http_code}]\n" \
-  'https://api.jsonbin.io/v3/b/69b416c8b7ec241ddc665ad0/latest' \
-  -H 'X-Master-Key: $2a$10$48brY21mTWonb7XNdPuk.u8t1/YE5ITXsXTCHCzoNNwqbuymQHCSO'
+  'https://api.jsonbin.io/v3/b/<OLD_JSONBIN_BIN_ID>/latest' \
+  -H 'X-Master-Key: <OLD_JSONBIN_KEY>'
 ```
 
 Expected when ready: `[HTTP 200]` with a JSON body containing `"record"`. If still `[HTTP 403]` ("Requests exhausted"), stop and retry later.
@@ -602,8 +602,8 @@ Expected when ready: `[HTTP 200]` with a JSON body containing `"record"`. If sti
 - [ ] **Step 2: Export the record to a file**
 
 ```bash
-curl -s 'https://api.jsonbin.io/v3/b/69b416c8b7ec241ddc665ad0/latest' \
-  -H 'X-Master-Key: $2a$10$48brY21mTWonb7XNdPuk.u8t1/YE5ITXsXTCHCzoNNwqbuymQHCSO' \
+curl -s 'https://api.jsonbin.io/v3/b/<OLD_JSONBIN_BIN_ID>/latest' \
+  -H 'X-Master-Key: <OLD_JSONBIN_KEY>' \
   | python3 -c "import sys, json; print(json.dumps(json.load(sys.stdin)['record']))" \
   > /tmp/board-export.json
 cat /tmp/board-export.json
