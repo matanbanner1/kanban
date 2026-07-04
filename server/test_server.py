@@ -105,6 +105,19 @@ class HttpTest(unittest.TestCase):
         )
         self.assertIn("X-Master-Key", resp.getheader("Access-Control-Allow-Headers"))
 
+    def test_options_grants_private_network_access(self):
+        # Chrome sends this on the preflight when a public page targets a
+        # private IP; server must echo Allow-Private-Network for the fetch.
+        conn = http.client.HTTPConnection("127.0.0.1", self.port)
+        conn.request("OPTIONS", "/b/board1", None,
+                     {"Access-Control-Request-Private-Network": "true"})
+        resp = conn.getresponse()
+        resp.read()
+        conn.close()
+        self.assertEqual(resp.status, 204)
+        self.assertEqual(
+            resp.getheader("Access-Control-Allow-Private-Network"), "true")
+
     def test_post_creates_bin(self):
         resp, data = self.req("POST", "/b", json.dumps({"todo": []}))
         self.assertEqual(resp.status, 200)
