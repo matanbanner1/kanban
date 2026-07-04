@@ -182,6 +182,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(204)
         self._cors()
+        # Private Network Access: Chrome blocks a public page (github.io) from
+        # reaching a private IP unless the preflight opts in. On-tailnet devices
+        # resolve this host to a private tailnet IP via MagicDNS, so grant it.
+        if self.headers.get("Access-Control-Request-Private-Network") == "true":
+            self.send_header("Access-Control-Allow-Private-Network", "true")
         self.send_header("Content-Length", "0")
         self.end_headers()
 
