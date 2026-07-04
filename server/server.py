@@ -78,7 +78,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def _authed(self):
         key = self.headers.get("X-Master-Key", "")
-        return bool(MASTER_KEY) and hmac.compare_digest(key, MASTER_KEY)
+        # Compare as bytes: hmac.compare_digest raises TypeError on non-ASCII
+        # str inputs, which would otherwise crash the handler thread (fails
+        # closed, but with a stderr/journal traceback) on a header containing
+        # non-ASCII bytes. Bytes comparison stays constant-time and never
+        # raises for this input.
+        return bool(MASTER_KEY) and hmac.compare_digest(
+            key.encode("utf-8", "surrogatepass"), MASTER_KEY.encode("utf-8")
+        )
 
     def _abandon(self):
         """Give up on a connection whose body read failed (timeout or reset).
@@ -90,15 +97,23 @@ class Handler(BaseHTTPRequestHandler):
         self.close_connection = True
 
     def _content_length(self):
-        """Return (length, err). On a non-numeric header, replies 400 and err is True."""
+        """Return (length, err). On a non-numeric or negative header, replies
+        400 and err is True. A negative value would otherwise pass the
+        `int(...)` parse, slip past the caller's `length > MAX_BODY` cap
+        (false for negatives), and turn `self.rfile.read(length)` into an
+        unbounded read-until-EOF — defeating MAX_BODY entirely.
+        """
         raw = self.headers.get("Content-Length", "0") or "0"
         try:
-            return int(raw), False
+            length = int(raw)
         except ValueError:
+            length = None
+        if length is None or length < 0:
             if not self._drain_body():
                 return None, True
             self._reply(400, {"message": "bad content-length"})
             return None, True
+        return length, False
 
     def _drain_body(self):
         """Read-and-discard the declared request body so the socket closes cleanly.

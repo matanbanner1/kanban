@@ -133,6 +133,29 @@ class HttpTest(unittest.TestCase):
         self.assertEqual(resp.status, 400)
         self.assertEqual(json.loads(data), {"message": "bad content-length"})
 
+    def test_negative_content_length_400(self):
+        # http.client computes Content-Length from the body automatically, so
+        # a forced negative value requires bypassing conn.request() and
+        # driving putrequest/putheader/endheaders directly.
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        conn.connect()
+        body = b'{"x": 1}'
+        conn.putrequest("PUT", "/b/board1", skip_accept_encoding=True)
+        conn.putheader("X-Master-Key", "testkey")
+        conn.putheader("Content-Type", "application/json")
+        conn.putheader("Content-Length", "-1")
+        conn.endheaders()
+        conn.send(body)
+        resp = conn.getresponse()
+        data = resp.read()
+        conn.close()
+        self.assertEqual(resp.status, 400)
+        self.assertEqual(json.loads(data), {"message": "bad content-length"})
+
+    def test_non_ascii_master_key_401(self):
+        resp, _ = self.req("GET", "/b/board1/latest", key="ké")
+        self.assertEqual(resp.status, 401)
+
 
 class SlowClientTimeoutTest(unittest.TestCase):
     """Guards against the slowloris / hung-thread DoS: a client that declares
