@@ -1,8 +1,10 @@
 import http.client
 import json
 import os
+import socket
 import tempfile
 import threading
+import time
 import unittest
 from http.server import ThreadingHTTPServer
 
@@ -130,6 +132,50 @@ class HttpTest(unittest.TestCase):
         conn.close()
         self.assertEqual(resp.status, 400)
         self.assertEqual(json.loads(data), {"message": "bad content-length"})
+
+
+class SlowClientTimeoutTest(unittest.TestCase):
+    """Guards against the slowloris / hung-thread DoS: a client that declares
+    a body but never sends it (and never closes) must not be able to hang a
+    server thread forever.
+    """
+
+    def test_stalled_body_read_times_out_and_closes_cleanly(self):
+        tmp = tempfile.mkdtemp()
+        server.DATA_DIR = tmp
+        server.MASTER_KEY = "testkey"
+
+        original_timeout = server.Handler.timeout
+        server.Handler.timeout = 0.5  # deterministic, fast test
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        port = httpd.server_address[1]
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        try:
+            sock = socket.create_connection(("127.0.0.1", port), timeout=5)
+            try:
+                request = (
+                    "PUT /b/x HTTP/1.0\r\n"
+                    "X-Master-Key: testkey\r\n"
+                    "Content-Length: 1000000\r\n\r\n"
+                )
+                sock.sendall(request.encode())
+                # Deliberately send no body and never close our end. A
+                # vulnerable server would block forever inside
+                # self.rfile.read(); a fixed one times out and closes the
+                # connection, which surfaces here as a clean EOF (b"").
+                start = time.monotonic()
+                data = sock.recv(4096)
+                elapsed = time.monotonic() - start
+            finally:
+                sock.close()
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+            server.Handler.timeout = original_timeout
+
+        self.assertEqual(data, b"")
+        self.assertLess(elapsed, 5)
 
 
 if __name__ == "__main__":
