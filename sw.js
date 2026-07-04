@@ -1,4 +1,4 @@
-const CACHE = 'kanban-v2';
+const CACHE = 'kanban-v3';
 const SHELL = ['./kanban.html', './icon-192.png', './icon-512.png', './icon.svg'];
 
 self.addEventListener('install', e => {
@@ -16,8 +16,8 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Cache-first for the app shell; network-only for JSONBin API calls.
-  if (e.request.url.includes('jsonbin.io')) return;
+  // Cache-first for the app shell; network-only for storage API calls.
+  if (e.request.url.includes('.ts.net')) return;
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );
