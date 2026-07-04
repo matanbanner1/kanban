@@ -2,3 +2,9 @@
 .superpowers/
 .worktrees/
 kanban-secrets.js
+
+# Python bytecode
+__pycache__/
+
+# Playwright MCP artifacts
+.playwright-mcp/

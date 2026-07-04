@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 ## Local Development
 
 No build step. Open directly in a browser:
@@ -46,11 +48,7 @@ Everything lives in `kanban.html` — HTML, CSS, and JS in one file (~1200 lines
 
 ## Testing
 
-Open test files directly in a browser — no test runner needed:
-
-```
-tests/   ← open any .test.html file in a browser
-```
+There is no test runner. The `tests/` directory is currently empty; the intended convention is browser-run `*.test.html` files opened directly (no build step, matching the app itself).
 
 ## Companion App
 

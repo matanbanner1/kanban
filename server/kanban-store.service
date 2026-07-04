@@ -1,0 +1,14 @@
+[Unit]
+Description=Kanban JSON blob store
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/kanban-store/server.py
+EnvironmentFile=%h/kanban-store/kanban-store.env
+Environment=KANBAN_DATA_DIR=%h/kanban-store/data
+Environment=KANBAN_PORT=18821
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,205 @@
+import http.client
+import json
+import os
+import socket
+import tempfile
+import threading
+import time
+import unittest
+from http.server import ThreadingHTTPServer
+
+import server
+
+
+class BlobStoreTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        server.DATA_DIR = self.tmp
+
+    def test_write_then_read_roundtrip(self):
+        server.write_blob("mybin", {"todo": [1, 2], "done": []})
+        self.assertEqual(server.read_blob("mybin"), {"todo": [1, 2], "done": []})
+
+    def test_read_missing_raises_filenotfound(self):
+        with self.assertRaises(FileNotFoundError):
+            server.read_blob("nope")
+
+    def test_write_is_atomic_no_tmp_left(self):
+        server.write_blob("mybin", {"a": 1})
+        leftovers = [f for f in os.listdir(self.tmp) if f.endswith(".tmp")]
+        self.assertEqual(leftovers, [])
+
+    def test_bin_id_regex(self):
+        self.assertTrue(server.BIN_ID_RE.match("abc-123_DEF"))
+        self.assertFalse(server.BIN_ID_RE.match("../etc"))
+        self.assertFalse(server.BIN_ID_RE.match("has/slash"))
+        self.assertFalse(server.BIN_ID_RE.match(""))
+
+
+class HttpTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp()
+        server.DATA_DIR = cls.tmp
+        server.MASTER_KEY = "testkey"
+        cls.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        cls.port = cls.httpd.server_address[1]
+        cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+
+    def req(self, method, path, body=None, key="testkey", ctype="application/json"):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port)
+        headers = {}
+        if key is not None:
+            headers["X-Master-Key"] = key
+        if body is not None:
+            headers["Content-Type"] = ctype
+        conn.request(method, path, body, headers)
+        resp = conn.getresponse()
+        data = resp.read()
+        conn.close()
+        return resp, data
+
+    def test_put_then_get_roundtrip(self):
+        resp, _ = self.req("PUT", "/b/board1", json.dumps({"todo": [1]}))
+        self.assertEqual(resp.status, 200)
+        resp, data = self.req("GET", "/b/board1/latest")
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(json.loads(data)["record"], {"todo": [1]})
+
+    def test_get_unknown_bin_404(self):
+        resp, _ = self.req("GET", "/b/ghost/latest")
+        self.assertEqual(resp.status, 404)
+
+    def test_bad_key_401(self):
+        resp, _ = self.req("GET", "/b/board1/latest", key="wrong")
+        self.assertEqual(resp.status, 401)
+
+    def test_missing_key_401(self):
+        resp, _ = self.req("GET", "/b/board1/latest", key=None)
+        self.assertEqual(resp.status, 401)
+
+    def test_path_traversal_id_400(self):
+        resp, _ = self.req("PUT", "/b/..%2Fetc", json.dumps({"x": 1}))
+        self.assertIn(resp.status, (400, 404))
+
+    def test_invalid_json_400(self):
+        resp, _ = self.req("PUT", "/b/board1", "{not json")
+        self.assertEqual(resp.status, 400)
+
+    def test_body_too_large_413(self):
+        big = json.dumps({"x": "a" * 1_000_001})
+        resp, _ = self.req("PUT", "/b/board1", big)
+        self.assertEqual(resp.status, 413)
+
+    def test_options_preflight_cors(self):
+        resp, _ = self.req("OPTIONS", "/b/board1", key=None)
+        self.assertEqual(resp.status, 204)
+        self.assertEqual(
+            resp.getheader("Access-Control-Allow-Origin"),
+            "https://matanbanner1.github.io",
+        )
+        self.assertIn("X-Master-Key", resp.getheader("Access-Control-Allow-Headers"))
+
+    def test_post_creates_bin(self):
+        resp, data = self.req("POST", "/b", json.dumps({"todo": []}))
+        self.assertEqual(resp.status, 200)
+        new_id = json.loads(data)["metadata"]["id"]
+        self.assertTrue(server.BIN_ID_RE.match(new_id))
+        resp, data = self.req("GET", f"/b/{new_id}/latest")
+        self.assertEqual(json.loads(data)["record"], {"todo": []})
+
+    def test_put_empty_body_stores_empty_object(self):
+        resp, data = self.req("PUT", "/b/emptybin", body=None)
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(json.loads(data), {"metadata": {"id": "emptybin"}})
+        self.assertEqual(server.read_blob("emptybin"), {})
+
+    def test_bad_content_length_400(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port)
+        headers = {
+            "X-Master-Key": "testkey",
+            "Content-Type": "application/json",
+            "Content-Length": "not-a-number",
+        }
+        conn.request("PUT", "/b/board1", "{}", headers)
+        resp = conn.getresponse()
+        data = resp.read()
+        conn.close()
+        self.assertEqual(resp.status, 400)
+        self.assertEqual(json.loads(data), {"message": "bad content-length"})
+
+    def test_negative_content_length_400(self):
+        # http.client computes Content-Length from the body automatically, so
+        # a forced negative value requires bypassing conn.request() and
+        # driving putrequest/putheader/endheaders directly.
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        conn.connect()
+        body = b'{"x": 1}'
+        conn.putrequest("PUT", "/b/board1", skip_accept_encoding=True)
+        conn.putheader("X-Master-Key", "testkey")
+        conn.putheader("Content-Type", "application/json")
+        conn.putheader("Content-Length", "-1")
+        conn.endheaders()
+        conn.send(body)
+        resp = conn.getresponse()
+        data = resp.read()
+        conn.close()
+        self.assertEqual(resp.status, 400)
+        self.assertEqual(json.loads(data), {"message": "bad content-length"})
+
+    def test_non_ascii_master_key_401(self):
+        resp, _ = self.req("GET", "/b/board1/latest", key="ké")
+        self.assertEqual(resp.status, 401)
+
+
+class SlowClientTimeoutTest(unittest.TestCase):
+    """Guards against the slowloris / hung-thread DoS: a client that declares
+    a body but never sends it (and never closes) must not be able to hang a
+    server thread forever.
+    """
+
+    def test_stalled_body_read_times_out_and_closes_cleanly(self):
+        tmp = tempfile.mkdtemp()
+        server.DATA_DIR = tmp
+        server.MASTER_KEY = "testkey"
+
+        original_timeout = server.Handler.timeout
+        server.Handler.timeout = 0.5  # deterministic, fast test
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        port = httpd.server_address[1]
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        try:
+            sock = socket.create_connection(("127.0.0.1", port), timeout=5)
+            try:
+                request = (
+                    "PUT /b/x HTTP/1.0\r\n"
+                    "X-Master-Key: testkey\r\n"
+                    "Content-Length: 1000000\r\n\r\n"
+                )
+                sock.sendall(request.encode())
+                # Deliberately send no body and never close our end. A
+                # vulnerable server would block forever inside
+                # self.rfile.read(); a fixed one times out and closes the
+                # connection, which surfaces here as a clean EOF (b"").
+                start = time.monotonic()
+                data = sock.recv(4096)
+                elapsed = time.monotonic() - start
+            finally:
+                sock.close()
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+            server.Handler.timeout = original_timeout
+
+        self.assertEqual(data, b"")
+        self.assertLess(elapsed, 5)
+
+
+if __name__ == "__main__":
+    unittest.main()
