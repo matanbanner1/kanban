@@ -56,11 +56,7 @@ class HttpTest(unittest.TestCase):
             headers["X-Master-Key"] = key
         if body is not None:
             headers["Content-Type"] = ctype
-        try:
-            conn.request(method, path, body, headers)
-        except (BrokenPipeError, ConnectionResetError, OSError):
-            # Server may close connection early when rejecting large bodies
-            pass
+        conn.request(method, path, body, headers)
         resp = conn.getresponse()
         data = resp.read()
         conn.close()
@@ -114,6 +110,26 @@ class HttpTest(unittest.TestCase):
         self.assertTrue(server.BIN_ID_RE.match(new_id))
         resp, data = self.req("GET", f"/b/{new_id}/latest")
         self.assertEqual(json.loads(data)["record"], {"todo": []})
+
+    def test_put_empty_body_stores_empty_object(self):
+        resp, data = self.req("PUT", "/b/emptybin", body=None)
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(json.loads(data), {"metadata": {"id": "emptybin"}})
+        self.assertEqual(server.read_blob("emptybin"), {})
+
+    def test_bad_content_length_400(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port)
+        headers = {
+            "X-Master-Key": "testkey",
+            "Content-Type": "application/json",
+            "Content-Length": "not-a-number",
+        }
+        conn.request("PUT", "/b/board1", "{}", headers)
+        resp = conn.getresponse()
+        data = resp.read()
+        conn.close()
+        self.assertEqual(resp.status, 400)
+        self.assertEqual(json.loads(data), {"message": "bad content-length"})
 
 
 if __name__ == "__main__":

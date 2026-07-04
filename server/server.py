@@ -66,10 +66,53 @@ class Handler(BaseHTTPRequestHandler):
         key = self.headers.get("X-Master-Key", "")
         return bool(MASTER_KEY) and hmac.compare_digest(key, MASTER_KEY)
 
+    def _content_length(self):
+        """Return (length, err). On a non-numeric header, replies 400 and err is True."""
+        raw = self.headers.get("Content-Length", "0") or "0"
+        try:
+            return int(raw), False
+        except ValueError:
+            self._drain_body()
+            self._reply(400, {"message": "bad content-length"})
+            return None, True
+
+    def _drain_body(self):
+        """Read-and-discard the declared request body so the socket closes cleanly.
+
+        BaseHTTPRequestHandler defaults to HTTP/1.0 (socket closes after the
+        handler returns). If we reply early without reading a client's
+        pending body off the wire, the OS may RST the connection instead of
+        closing it cleanly, which some clients (e.g. browser fetch()) surface
+        as a network error rather than the intended HTTP status.
+
+        Bounded to a small multiple of MAX_BODY: draining just past that is
+        enough to make realistic oversized-but-plausible bodies (e.g. just
+        over 1 MB) close cleanly. A pathologically huge Content-Length from
+        an abusive client may still end in a reset — that's an acceptable
+        outcome for that abuse case, and we avoid an unbounded read that
+        would itself be a DoS vector.
+        """
+        raw = self.headers.get("Content-Length", "0") or "0"
+        try:
+            length = int(raw)
+        except ValueError:
+            return
+        cap = MAX_BODY + 1
+        remaining = min(length, cap)
+        chunk_size = 65536
+        while remaining > 0:
+            chunk = self.rfile.read(min(chunk_size, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+
     def _read_body(self):
         """Return (data, err). On error, already sends the response; err is True."""
-        length = int(self.headers.get("Content-Length", "0") or "0")
+        length, err = self._content_length()
+        if err:
+            return None, True
         if length > MAX_BODY:
+            self._drain_body()
             self._reply(413, {"message": "payload too large"})
             return None, True
         raw = self.rfile.read(length) if length else b""
@@ -102,12 +145,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         if not self._authed():
+            self._drain_body()
             return self._reply(401, {"message": "unauthorized"})
         m = re.match(r"^/b/([^/]+)$", self.path)
         if not m:
+            self._drain_body()
             return self._reply(404, {"message": "not found"})
         bin_id = m.group(1)
         if not BIN_ID_RE.match(bin_id):
+            self._drain_body()
             return self._reply(400, {"message": "bad bin id"})
         data, err = self._read_body()
         if err:
@@ -117,8 +163,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if not self._authed():
+            self._drain_body()
             return self._reply(401, {"message": "unauthorized"})
         if self.path != "/b":
+            self._drain_body()
             return self._reply(404, {"message": "not found"})
         data, err = self._read_body()
         if err:
